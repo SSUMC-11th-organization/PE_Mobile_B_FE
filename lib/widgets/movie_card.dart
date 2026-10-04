@@ -17,8 +17,8 @@ class MovieCard extends StatelessWidget {
 
     return GestureDetector(
       // push = 현재 화면 위에 상세 화면을 쌓음 → 상세에서 뒤로가기로 돌아올 수 있음
-      // 상세 화면은 아직 mockMovies 기준이라 TMDB id는 "찾을 수 없음"으로 표시됨 (상세 연동 단계에서 수정)
-      onTap: () => context.push('/movies/${movie.id}'),
+      // 경로에는 TMDB id(배열 index 아님), extra로 영화 데이터를 함께 넘겨 상세에서 다시 조회하지 않음
+      onTap: () => context.push('/movies/${movie.id}', extra: movie),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

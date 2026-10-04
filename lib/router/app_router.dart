@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/models/tmdb_movie_dto.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/home_screen.dart';
 import '../screens/main_screen.dart';
@@ -66,8 +67,12 @@ class AppRouter {
       GoRoute(
         path: '/movies/:movieId',
         // pathParameters는 String이라 int로 파싱. 숫자가 아니면 null → 상세 화면에서 안내 표시
+        // extra = 카드에서 넘긴 TmdbMovieDto. URL 직접 진입 등으로 없으면 null
         builder: (context, state) => MovieDetailScreen(
           movieId: int.tryParse(state.pathParameters['movieId'] ?? ''),
+          movie: state.extra is TmdbMovieDto
+              ? state.extra as TmdbMovieDto
+              : null,
         ),
       ),
     ],
