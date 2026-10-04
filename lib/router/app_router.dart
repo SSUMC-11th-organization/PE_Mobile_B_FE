@@ -10,6 +10,7 @@ import '../screens/my_page_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
 import '../view_models/movie_home_view_model.dart';
+import '../view_models/movie_list_view_model.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
@@ -47,7 +48,13 @@ class AppRouter {
           ),
           GoRoute(
             path: '/movies',
-            builder: (context, state) => const MovieListScreen(),
+            // 목록 탭 진입 시 ViewModel 생성 + 장르/영화 첫 로드 (한 번만)
+            builder: (context, state) => ChangeNotifierProvider(
+              create: (context) =>
+                  MovieListViewModel(context.read<TmdbMovieService>())
+                    ..loadInitial(),
+              child: const MovieListScreen(),
+            ),
           ),
           GoRoute(
             path: '/my',

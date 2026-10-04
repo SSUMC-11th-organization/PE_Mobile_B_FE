@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../theme/app_text_styles.dart';
 import '../view_models/movie_home_view_model.dart';
-import '../widgets/tmdb_movie_card.dart';
+import '../widgets/movie_card.dart';
+import '../widgets/movie_list_error.dart';
 
 // 홈 화면 — TMDB 인기 영화 5편을 가로 스크롤 섹션으로 표시
 class HomeScreen extends StatelessWidget {
@@ -31,7 +32,7 @@ class HomeScreen extends StatelessWidget {
                       case MovieHomeStatus.loading:
                         return const Center(child: CircularProgressIndicator());
                       case MovieHomeStatus.error:
-                        return _PopularError(
+                        return MovieListError(
                           message: viewModel.errorMessage,
                           onRetry: viewModel.loadPopular,
                         );
@@ -47,7 +48,7 @@ class HomeScreen extends StatelessWidget {
                           // 가로 ListView 안에서는 폭이 무한대라 카드 폭을 지정
                           itemBuilder: (context, index) => SizedBox(
                             width: 140,
-                            child: TmdbMovieCard(movie: movies[index]),
+                            child: MovieCard(movie: movies[index]),
                           ),
                         );
                     }
@@ -57,33 +58,6 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// 인기 영화 로드 실패 — 원인 메시지(예: 토큰 오류, 네트워크) + 다시 시도
-class _PopularError extends StatelessWidget {
-  const _PopularError({required this.message, required this.onRetry});
-
-  final String? message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline),
-          const SizedBox(height: 12),
-          Text(
-            message ?? '영화를 불러오지 못했습니다.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
-        ],
       ),
     );
   }
