@@ -1,6 +1,7 @@
 // flutter/material.dart 안에 MaterialApp, Scaffold, Text, Icon, ElevatedButton 등
 // 자주 쓰는 Widget들이 다 들어있어서 이 한 줄로 전부 가져다 씀
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,7 +10,12 @@ import 'screens/sign_up_screen.dart';
 
 
 // 앱이 시작될 때 제일 먼저 실행되는 함수. Dart의 모든 프로그램은 main()에서 시작해
-void main() {
+Future<void> main() async {
+  // runApp 전에 asset(.env)을 읽으려면 Flutter 엔진 바인딩을 먼저 초기화해야 함
+  WidgetsFlutterBinding.ensureInitialized();
+  // .env의 TMDB_ACCESS_TOKEN 등을 메모리에 로드 (파일은 pubspec.yaml assets에 등록돼 있어야 함)
+  await dotenv.load(fileName: '.env');
+
   // runApp()에 "가장 바깥쪽 Widget"을 넘겨주면 Flutter가 그걸 화면에 그리기 시작함
   runApp(const MovieLogApp());
 }

@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# 환경 변수 (TMDB 토큰 등) — .env.example만 커밋
+.env
