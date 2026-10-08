@@ -54,7 +54,6 @@ class _MovieLogTextFormFieldState extends State<MovieLogTextFormField> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    const radius = BorderRadius.all(Radius.circular(12));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,29 +72,7 @@ class _MovieLogTextFormFieldState extends State<MovieLogTextFormField> {
           onFieldSubmitted: widget.onFieldSubmitted,
           decoration: InputDecoration(
             hintText: widget.hint,
-            filled: true,
-            fillColor: const Color(0xFFF3F1EE),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 18,
-            ),
             suffixIcon: _buildSuffixIcon(colors),
-            enabledBorder: const OutlineInputBorder(
-              borderRadius: radius,
-              borderSide: BorderSide(color: Color(0xFFC9C5C0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: radius,
-              borderSide: BorderSide(color: colors.primary, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: radius,
-              borderSide: BorderSide(color: colors.error),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: radius,
-              borderSide: BorderSide(color: colors.error, width: 2),
-            ),
           ),
         ),
       ],
