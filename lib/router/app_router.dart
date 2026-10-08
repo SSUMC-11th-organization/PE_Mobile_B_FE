@@ -1,5 +1,8 @@
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/tmdb_movie_service.dart';
 import '../screens/home_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/movie_detail_screen.dart';
@@ -7,6 +10,8 @@ import '../screens/movie_list_screen.dart';
 import '../screens/my_page_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
+import '../view_models/movie_home_view_model.dart';
+import '../view_models/movie_list_view_model.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
@@ -32,11 +37,25 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (context, state) => const HomeScreen(),
+            // 홈 진입 시 ViewModel을 만들고 바로 한 번만 로드 (create는 build마다 다시 불리지 않음)
+            // lazy: false — 홈 UI가 아직 ViewModel을 읽지 않아도 진입 즉시 생성되도록
+            builder: (context, state) => ChangeNotifierProvider(
+              lazy: false,
+              create: (context) =>
+                  MovieHomeViewModel(context.read<TmdbMovieService>())
+                    ..loadPopular(),
+              child: const HomeScreen(),
+            ),
           ),
           GoRoute(
             path: '/movies',
-            builder: (context, state) => const MovieListScreen(),
+            // 목록 탭 진입 시 ViewModel 생성 + 장르/영화 첫 로드 (한 번만)
+            builder: (context, state) => ChangeNotifierProvider(
+              create: (context) =>
+                  MovieListViewModel(context.read<TmdbMovieService>())
+                    ..loadInitial(),
+              child: const MovieListScreen(),
+            ),
           ),
           GoRoute(
             path: '/my',
@@ -48,8 +67,12 @@ class AppRouter {
       GoRoute(
         path: '/movies/:movieId',
         // pathParameters는 String이라 int로 파싱. 숫자가 아니면 null → 상세 화면에서 안내 표시
+        // extra = 카드에서 넘긴 TmdbMovieDto. URL 직접 진입 등으로 없으면 null
         builder: (context, state) => MovieDetailScreen(
           movieId: int.tryParse(state.pathParameters['movieId'] ?? ''),
+          movie: state.extra is TmdbMovieDto
+              ? state.extra as TmdbMovieDto
+              : null,
         ),
       ),
     ],
