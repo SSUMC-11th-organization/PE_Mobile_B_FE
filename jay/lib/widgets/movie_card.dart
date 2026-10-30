@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import 'mock_movie.dart';
+import '../utils/movie_format.dart';
+import 'tmdb_poster_image.dart';
 
 class MovieCard extends StatelessWidget {
-  const MovieCard({super.key, required this.movie});
+  const MovieCard({super.key, required this.movie, this.genreName});
 
-  final Movie movie;
+  final TmdbMovieDto movie;
+  final String? genreName;
 
   @override
   Widget build(BuildContext context) {
+    // 연도·장르 중 값이 있는 것만 이어 붙인다
+    final subtitle = [?releaseYear(movie.releaseDate), ?genreName].join(' · ');
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => context.push('/movies/${movie.id}'),
+      // 배열 index가 아니라 TMDB id를 넘긴다 → 이후 평점 movieId로 사용
+      onTap: () => context.push('/movies/${movie.id}', extra: movie),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -25,12 +32,18 @@ class MovieCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(movie.posterAsset, fit: BoxFit.cover),
+                  child: TmdbPosterImage(
+                    posterPath: movie.posterPath,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
                 ),
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: _RatingBadge(rating: movie.rating),
+                  child: _RatingBadge(
+                    rating: fiveStarRating(movie.voteAverage),
+                  ),
                 ),
               ],
             ),
@@ -44,7 +57,8 @@ class MovieCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          Text('${movie.year} · ${movie.genre}', style: AppTextStyles.bodySmall),
+          if (subtitle.isNotEmpty)
+            Text(subtitle, style: AppTextStyles.bodySmall),
         ],
       ),
     );
@@ -65,7 +79,7 @@ class _RatingBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        '★ $rating',
+        '★ ${rating.toStringAsFixed(1)}',
         style: const TextStyle(
           color: AppColors.white,
           fontSize: 12,
