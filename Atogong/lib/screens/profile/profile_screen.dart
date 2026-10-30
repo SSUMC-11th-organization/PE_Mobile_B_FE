@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/common_app_bar.dart';
-import 'widgets/profile_header.dart';
-import 'widgets/profile_stats.dart';
 import 'widgets/edit_profile_button.dart';
 import 'widgets/favorite_genres.dart';
+import 'widgets/my_ratings.dart';
+import 'widgets/profile_header.dart';
+import 'widgets/profile_stats.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,10 +16,7 @@ class ProfileScreen extends StatelessWidget {
       appBar: CommonAppBar(title: '내 프로필'),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 16,
-          ), // Padding
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -31,6 +29,8 @@ class ProfileScreen extends StatelessWidget {
               ProfileStats(),
               SizedBox(height: 32),
               FavoriteGenres(),
+              SizedBox(height: 32),
+              MyRatings(),
             ],
           ),
         ),
