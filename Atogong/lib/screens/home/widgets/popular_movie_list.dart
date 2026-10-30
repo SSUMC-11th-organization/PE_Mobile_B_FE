@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../data/mock_movies.dart';
+import '../../../data/models/tmdb_movie_dto.dart';
 import '../../../widgets/movie_card.dart';
 
 class PopularMovieList extends StatelessWidget {
-  const PopularMovieList({super.key});
+  const PopularMovieList({super.key, required this.movies});
+
+  final List<TmdbMovieDto> movies;
 
   @override
   Widget build(BuildContext context) {

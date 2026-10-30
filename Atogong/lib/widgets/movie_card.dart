@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/movie.dart';
+import '../data/models/tmdb_movie_dto.dart';
+import 'tmdb_poster_image.dart';
 
 class MovieCard extends StatelessWidget {
   const MovieCard({super.key, required this.movie, this.width});
 
-  final Movie movie;
+  final TmdbMovieDto movie;
   final double? width;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final year = movie.releaseDate?.split('-').first;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => context.push('/movies/${movie.id}'),
+      // 상세 화면에는 TMDB id를 경로로 넘기고, 화면에 그릴 DTO는 extra로 함께 전달
+      onTap: () => context.push('/movies/${movie.id}', extra: movie),
       child: SizedBox(
         width: width,
         child: Column(
@@ -27,7 +30,11 @@ class MovieCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(movie.posterAsset, fit: BoxFit.cover),
+                    child: TmdbPosterImage(
+                      posterPath: movie.posterPath,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
                   ),
                   Positioned(
                     top: 8,
@@ -42,7 +49,7 @@ class MovieCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '★ ${movie.rating}',
+                        '★ ${movie.voteAverage.toStringAsFixed(1)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -63,10 +70,11 @@ class MovieCard extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              '${movie.year} · ${movie.genre}',
-              style: textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-            ),
+            if (year != null && year.isNotEmpty)
+              Text(
+                year,
+                style: textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
           ],
         ),
       ),
