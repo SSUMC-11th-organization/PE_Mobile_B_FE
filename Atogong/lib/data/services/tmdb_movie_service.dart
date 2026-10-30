@@ -28,7 +28,7 @@ class TmdbMovieService {
         'sort_by': 'popularity.desc',
         'include_adult': false,
         'include_video': false,
-        if (genreId != null) 'with_genres': genreId,
+        'with_genres': ?genreId,
       },
     );
     return TmdbMoviePageDto.fromJson(response.data as Map<String, dynamic>);
