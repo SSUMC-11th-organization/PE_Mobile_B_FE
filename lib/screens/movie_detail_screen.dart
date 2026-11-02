@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/mock_movies.dart';
+import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/movie_rating_input.dart';
 
 class MovieDetailScreen extends StatefulWidget {
-  const MovieDetailScreen({super.key, required this.movieId});
+  const MovieDetailScreen({super.key, required this.movieId, this.movie});
 
-  // 경로의 :movieId를 int로 파싱한 값. 숫자가 아니면 null
+  // 경로의 :movieId를 int로 파싱한 값(TMDB id). 숫자가 아니면 null
   final int? movieId;
+
+  // 카드 탭 시 go_router extra로 받은 영화. URL 직접 진입·앱 재시작 등으로 없으면 null
+  final TmdbMovieDto? movie;
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -37,11 +40,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       );
   }
 
-  Future<void> _openRatingDialog() async {
+  Future<void> _openRatingDialog(int movieId) async {
     // 다이얼로그가 Navigator.pop(context, rating)으로 돌려준 값. 바깥을 눌러 닫으면 null
     final rating = await showDialog<double>(
       context: context,
-      builder: (context) => const RatingDialog(),
+      builder: (context) => RatingDialog(movieId: movieId),
     );
     if (rating == null || !mounted) return;
     setState(() {
@@ -51,7 +54,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final movie = findMovieById(widget.movieId);
+    // 경로의 id와 extra 영화의 id가 같을 때만 사용 (다른 영화 데이터가 잘못 표시되지 않게)
+    final extra = widget.movie;
+    final movie = extra != null && extra.id == widget.movieId ? extra : null;
+    final year = movie?.releaseYear;
 
     return Scaffold(
       // 상세 화면은 뒤로가기 허용 → 이전 화면이 있으면 pop,
@@ -83,10 +89,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(movie.title, style: AppTextStyles.titleLarge),
-                    const SizedBox(height: 8),
-                    Text(movie.genre, style: AppTextStyles.bodyMedium),
-                    const SizedBox(height: 4),
-                    Text('${movie.year}', style: AppTextStyles.bodySmall),
+                    if (year != null) ...[
+                      const SizedBox(height: 4),
+                      Text('$year', style: AppTextStyles.bodySmall),
+                    ],
+                    if (movie.overview.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(movie.overview, style: AppTextStyles.bodyMedium),
+                    ],
                     const SizedBox(height: 24),
                     // 평균 평점 — 읽기 전용 별 표시
                     Row(
@@ -109,7 +119,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _openRatingDialog,
+                      onPressed: () => _openRatingDialog(movie.id),
                       child: const Text('평점 남기기'),
                     ),
                   ],
@@ -122,7 +132,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
 // 별점 선택 다이얼로그 — 확인 시 선택한 별점을 반환
 class RatingDialog extends StatefulWidget {
-  const RatingDialog({super.key});
+  const RatingDialog({super.key, required this.movieId});
+
+  // 평점을 남길 영화의 TMDB id — 평점 저장 API 연동 시 함께 전송
+  final int movieId;
 
   @override
   State<RatingDialog> createState() => _RatingDialogState();
