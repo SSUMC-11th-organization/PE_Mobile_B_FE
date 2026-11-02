@@ -3,6 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+import 'core/network/movie_log_client.dart';
+import 'data/services/member_check_service.dart';
+import 'data/services/rating_api_service.dart';
 import 'data/services/tmdb_movie_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -24,6 +27,9 @@ Future<void> main() async {
 class MovieLogApp extends StatelessWidget {
   const MovieLogApp({super.key}); // 생성자. key는 Flutter가 위젯을 구분하는 이름표 정도로 생각하면 됨
 
+  // 워크북 서버용 Dio — build마다 새로 만들지 않도록 앱 전체에서 한 번만 생성 (TMDB Dio와 별개)
+  static final movieLogClient = createMovieLogClient();
+
   @override
   // build()는 "이 위젯이 화면에 뭘 그려야 하는지"를 리턴하는 함수
   // BuildContext context는 "지금 이 위젯이 Widget Tree의 어디쯤 있는지"에 대한 정보
@@ -33,6 +39,14 @@ class MovieLogApp extends StatelessWidget {
       providers: [
         // 앱 전체에서 TmdbMovieService(= Dio 인스턴스) 하나를 공유
         Provider<TmdbMovieService>(create: (_) => TmdbMovieService()),
+        // 닉네임/이메일 중복 확인 — 워크북 Dio(movieLogClient) 사용
+        Provider<MemberCheckService>(
+          create: (_) => MemberCheckService(movieLogClient),
+        ),
+        // 평점 조회 — 같은 워크북 Dio(movieLogClient) 재사용
+        Provider<RatingApiService>(
+          create: (_) => RatingApiService(movieLogClient),
+        ),
       ],
       // MaterialApp.router = 화면 이동을 GoRouter에 맡기는 MaterialApp
       child: MaterialApp.router(
