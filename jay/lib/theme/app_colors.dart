@@ -15,5 +15,6 @@ abstract final class AppColors {
   static const fieldFill = Color(0xFFEFEEE9);
   static const fieldBorder = Color(0xFFCAC4D0);
   static const error = Color(0xFFBA1A1A);
+  static const success = Color(0xFF2E7D32);
   static const errorSurface = Color(0xFFFFD9D9);
 }

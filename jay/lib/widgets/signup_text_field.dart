@@ -10,6 +10,7 @@ class SignUpTextField extends StatefulWidget {
     required this.hintText,
     required this.controller,
     required this.validator,
+    this.errorText,
     this.focusNode,
     this.keyboardType,
     this.textInputAction,
@@ -22,6 +23,9 @@ class SignUpTextField extends StatefulWidget {
   final String hintText;
   final TextEditingController controller;
   final FormFieldValidator<String> validator;
+
+  /// 서버 중복 확인 등 validator 밖에서 결정되는 에러 문구입니다.
+  final String? errorText;
   final FocusNode? focusNode;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -39,7 +43,9 @@ class _SignUpTextFieldState extends State<SignUpTextField> {
   Widget? _buildStatusIcon() {
     if (!_interacted) return null;
 
-    final hasError = widget.validator(widget.controller.text) != null;
+    final hasError =
+        widget.errorText != null ||
+        widget.validator(widget.controller.text) != null;
     return hasError
         ? const Icon(Icons.error_outline, color: AppColors.error)
         : const Icon(Icons.check_circle, color: AppColors.violet);
@@ -64,6 +70,7 @@ class _SignUpTextFieldState extends State<SignUpTextField> {
           autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
             hintText: widget.hintText,
+            errorText: widget.errorText,
             suffixIcon: _buildStatusIcon(),
           ),
           validator: widget.validator,

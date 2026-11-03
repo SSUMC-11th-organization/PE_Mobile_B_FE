@@ -50,6 +50,6 @@ app.*.map.json
 /test/widget_test.dart
 /practice/
 /lib/practice/
-
+/test/rating_dto_test.dart
 # TMDB 환경변수
 .env
