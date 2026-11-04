@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../models/movie.dart';
+import '../../../data/models/tmdb_movie_dto.dart';
+import '../../../widgets/tmdb_poster_image.dart';
 
 class FeaturedBanner extends StatelessWidget {
   const FeaturedBanner({super.key, required this.movie});
 
-  final Movie movie;
+  final TmdbMovieDto movie;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final year = movie.releaseDate?.split('-').first;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -19,7 +21,11 @@ class FeaturedBanner extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(movie.posterAsset, fit: BoxFit.cover),
+            TmdbPosterImage(
+              posterPath: movie.posterPath,
+              width: double.infinity,
+              height: double.infinity,
+            ),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -36,7 +42,7 @@ class FeaturedBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Chip(
-                    label: const Text('추천 신작'),
+                    label: const Text('인기 1위'),
                     backgroundColor: colors.primary,
                     labelStyle: const TextStyle(
                       color: Colors.white,
@@ -47,6 +53,8 @@ class FeaturedBanner extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     movie.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -54,14 +62,15 @@ class FeaturedBanner extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${movie.tags.take(2).join(' · ')} · ${movie.runtime}분',
+                    '${year ?? ''} · ★ ${movie.voteAverage.toStringAsFixed(1)}',
                     style: const TextStyle(color: Colors.white70),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () => context.push('/movies/${movie.id}'),
+                      onPressed: () =>
+                          context.push('/movies/${movie.id}', extra: movie),
                       icon: const Icon(Icons.info),
                       label: const Text('상세보기'),
                     ),

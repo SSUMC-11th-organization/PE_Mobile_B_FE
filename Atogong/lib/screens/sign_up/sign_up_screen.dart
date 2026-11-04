@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../data/services/movielog_api_service.dart';
 import '../../widgets/movielog_text_form_field.dart';
 import 'widgets/login_link.dart';
 import 'widgets/sign_up_button.dart';
@@ -44,19 +47,41 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  // 제출 시 Form 전체 재검증
-  void _submit() {
+  // 제출 시 Form 전체 재검증 → 자체 백엔드로 닉네임·이메일 중복 확인 → 통과하면 홈으로
+  Future<void> _submit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
       return;
     }
 
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_nicknameController.text.trim()}님, 가입을 환영합니다!'),
-      ),
-    );
+    final nickname = _nicknameController.text.trim();
+    final email = _emailController.text.trim();
+    final api = context.read<MovieLogApiService>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final nicknameAvailable = await api.checkNickname(nickname);
+      if (!nicknameAvailable) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('이미 사용 중인 닉네임입니다.')),
+        );
+        return;
+      }
+      final emailAvailable = await api.checkEmail(email);
+      if (!emailAvailable) {
+        messenger.showSnackBar(const SnackBar(content: Text('이미 가입된 이메일입니다.')));
+        return;
+      }
+    } on DioException {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text('$nickname님, 가입을 환영합니다!')));
     context.go('/home');
   }
 

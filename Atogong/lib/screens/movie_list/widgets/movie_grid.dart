@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../models/movie.dart';
+import '../../../data/models/tmdb_movie_dto.dart';
 import '../../../widgets/movie_card.dart';
 
 class MovieGrid extends StatelessWidget {
   const MovieGrid({super.key, required this.movies});
 
-  final List<Movie> movies;
+  final List<TmdbMovieDto> movies;
 
   @override
   Widget build(BuildContext context) {
-    if (movies.isEmpty) {
-      return const Center(child: Text('해당 장르의 영화가 없습니다.'));
-    }
     return GridView.builder(
       padding: const EdgeInsets.all(24),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

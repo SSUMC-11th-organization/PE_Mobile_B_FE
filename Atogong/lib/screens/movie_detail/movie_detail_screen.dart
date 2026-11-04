@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/mock_movies.dart';
-import 'widgets/movie_info_section.dart';
+import '../../data/models/tmdb_movie_dto.dart';
+import '../../widgets/tmdb_poster_image.dart';
 import 'widgets/rating_dialog.dart';
 
 class MovieDetailScreen extends StatefulWidget {
-  const MovieDetailScreen({super.key, required this.movieId});
+  const MovieDetailScreen({super.key, required this.movieId, this.movie});
 
-  final int? movieId;
+  final int? movieId; // 경로로 받은 TMDB id
+  final TmdbMovieDto? movie; // 목록에서 extra로 넘겨준 DTO
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -28,10 +29,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  Future<void> _openRatingDialog() async {
+  Future<void> _openRatingDialog(int movieId) async {
     final rating = await showDialog<double>(
       context: context,
-      builder: (_) => RatingDialog(initialRating: _myRating),
+      builder: (_) => RatingDialog(initialRating: _myRating, movieId: movieId),
     );
     if (rating == null || !mounted) return;
     setState(() => _myRating = rating);
@@ -45,8 +46,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final movie = findMovieById(widget.movieId);
+    final movie = widget.movie;
     final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     if (movie == null) {
       return Scaffold(
@@ -73,11 +75,37 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         children: [
           AspectRatio(
             aspectRatio: 0.66,
-            child: Image.asset(movie.posterAsset, fit: BoxFit.cover),
+            child: TmdbPosterImage(
+              posterPath: movie.posterPath,
+              width: double.infinity,
+              height: double.infinity,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(24),
-            child: MovieInfoSection(movie: movie),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  movie.title,
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${movie.releaseDate ?? '개봉일 미정'} · ★ ${movie.voteAverage.toStringAsFixed(1)}',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (movie.overview.isEmpty)
+                  const Center(child: Text('줄거리 정보가 없어요.'))
+                else
+                  Text(movie.overview, style: textTheme.bodyLarge),
+              ],
+            ),
           ),
         ],
       ),
@@ -98,7 +126,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _openRatingDialog,
+                  onPressed: () => _openRatingDialog(movie.id),
                   icon: const Icon(Icons.rate_review_outlined),
                   label: Text(_myRating == null ? '평점 남기기' : '$_myRating점 수정'),
                 ),
