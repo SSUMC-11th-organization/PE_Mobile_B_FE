@@ -14,6 +14,7 @@ class MovieLogTextFormField extends StatefulWidget {
     this.textInputAction,
     this.isPassword = false,
     this.onFieldSubmitted,
+    this.errorText,
   });
 
   final String label;
@@ -27,6 +28,7 @@ class MovieLogTextFormField extends StatefulWidget {
   final TextInputAction? textInputAction;
   final bool isPassword;
   final ValueChanged<String>? onFieldSubmitted;
+  final String? errorText; // 서버 확인 결과(중복 등). validator가 통과해도 이게 있으면 에러 상태 유지
 
   @override
   State<MovieLogTextFormField> createState() => _MovieLogTextFormFieldState();
@@ -72,6 +74,7 @@ class _MovieLogTextFormFieldState extends State<MovieLogTextFormField> {
           onFieldSubmitted: widget.onFieldSubmitted,
           decoration: InputDecoration(
             hintText: widget.hint,
+            errorText: widget.errorText,
             suffixIcon: _buildSuffixIcon(colors),
           ),
         ),
