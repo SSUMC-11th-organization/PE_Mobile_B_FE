@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:movielog/core/network/movielog_client.dart';
 import 'package:movielog/core/network/tmdb_client.dart';
-import 'package:movielog/data/services/movielog_api_service.dart';
 import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/router/app_router.dart';
 import 'package:movielog/theme/app_theme.dart';
@@ -34,10 +33,6 @@ class MovieLogApp extends StatelessWidget {
         ),
         Provider<RatingApiService>(
           create: (_) => RatingApiService(movieLogClient),
-        ),
-        // 5주차용. 6주차 화면 교체 후 삭제 예정
-        Provider<MovieLogApiService>(
-          create: (_) => MovieLogApiService(movieLogClient),
         ),
       ],
       child: MaterialApp.router(
