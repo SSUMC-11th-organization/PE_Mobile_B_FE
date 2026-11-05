@@ -1,23 +1,32 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
+import '../screens/button_width_demo_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/movie_detail_screen.dart';
 import '../screens/movie_list_screen.dart';
 import '../screens/my_page_screen.dart';
+import '../screens/my_ratings_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
+import '../view_models/my_ratings_view_model.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
   AppRouter._(); // 인스턴스 생성 막기 — AppRouter.router로만 사용
 
+  // 최상위 Navigator — ShellRoute 하위 라우트를 하단 탭 없이 전체 화면으로 띄울 때 사용
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
+
   static final GoRouter router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/start', // 앱 켰을 때 제일 먼저 보여줄 경로
     routes: [
       GoRoute(
@@ -27,6 +36,11 @@ class AppRouter {
       GoRoute(
         path: '/register',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      // 개발용 버튼 데모 화면 (ShellRoute 밖)
+      GoRoute(
+        path: '/dev/buttons',
+        builder: (context, state) => const ButtonWidthDemoScreen(),
       ),
       // 하단 NavigationBar가 있는 탭 화면들 — MainScreen이 공통 껍데기
       ShellRoute(
@@ -60,6 +74,22 @@ class AppRouter {
           GoRoute(
             path: '/my',
             builder: (context, state) => const MyPageScreen(),
+            routes: [
+              // 평점 목록은 root Navigator에 띄움 → 하단 NavigationBar 없이 표시
+              GoRoute(
+                path: 'ratings',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) =>
+                    ChangeNotifierProvider<MyRatingsViewModel>(
+                  create: (context) => MyRatingsViewModel(
+                    context.read<RatingApiService>(),
+                    context.read<TmdbMovieService>(),
+                    sampleMemberId,
+                  )..load(),
+                  child: const MyRatingsScreen(),
+                ),
+              ),
+            ],
           ),
         ],
       ),

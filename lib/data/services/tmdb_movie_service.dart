@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../core/network/tmdb_client.dart';
 import '../models/json_parsers.dart';
 import '../models/tmdb_genre_dto.dart';
+import '../models/tmdb_movie_dto.dart';
 import '../models/tmdb_movie_page_dto.dart';
 
 // TMDB 요청 실패를 화면에서 다루기 쉬운 형태로 감싼 예외 (토큰·헤더 정보는 담지 않음)
@@ -47,6 +48,25 @@ class TmdbMovieService {
   Future<List<TmdbGenreDto>> fetchGenres() async {
     final json = await _getJson('/genre/movie/list');
     return parseObjectList(json['genres'], TmdbGenreDto.fromJson);
+  }
+
+  // 영화 상세 (GET /movie/{movieId}) — 실패 시 DioException을 그대로 던짐 (findMovieById에서 404 판별)
+  Future<TmdbMovieDto> fetchMovieDetail(int movieId) async {
+    final r = await _dio.get(
+      '/movie/$movieId',
+      queryParameters: {'language': 'ko-KR'},
+    );
+    return TmdbMovieDto.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // id로 영화 찾기 — TMDB에 없는 영화(404)면 null, 그 외 실패는 다시 던짐
+  Future<TmdbMovieDto?> findMovieById(int movieId) async {
+    try {
+      return await fetchMovieDetail(movieId);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> _getJson(
