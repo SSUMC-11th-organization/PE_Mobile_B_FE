@@ -3,11 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:jay/widgets/common_app_bar.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/signup_validators.dart';
+import '../view_models/signup_view_model.dart';
 import '../widgets/login_prompt.dart';
-import '../widgets/signup_submit_button.dart';
+import '../widgets/movielog_button.dart';
 import '../widgets/signup_text_field.dart';
 import '../widgets/terms_checkbox.dart';
 
@@ -87,28 +90,77 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           style: AppTextStyles.bodyMedium,
                         ),
                         const SizedBox(height: 32),
-                        SignUpTextField(
-                          label: '닉네임',
-                          hintText: '닉네임을 입력해주세요',
-                          controller: _nicknameController,
-                          validator: SignUpValidators.nickname,
-                          textInputAction: TextInputAction.next,
-                          onChanged: (_) => setState(() {}),
-                          onFieldSubmitted: (_) =>
-                              _emailFocusNode.requestFocus(),
-                        ),
-                        const SizedBox(height: 16),
-                        SignUpTextField(
-                          label: '이메일',
-                          hintText: '이메일 주소를 입력해주세요',
-                          controller: _emailController,
-                          focusNode: _emailFocusNode,
-                          validator: SignUpValidators.email,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          onChanged: (_) => setState(() {}),
-                          onFieldSubmitted: (_) =>
-                              _passwordFocusNode.requestFocus(),
+                        Consumer<SignupViewModel>(
+                          builder: (context, viewModel, child) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _CheckableField(
+                                  field: SignUpTextField(
+                                    label: '닉네임',
+                                    hintText: '닉네임을 입력해주세요',
+                                    controller: _nicknameController,
+                                    validator: SignUpValidators.nickname,
+                                    errorText: viewModel.nicknameErrorText,
+                                    textInputAction: TextInputAction.next,
+                                    onChanged: (value) {
+                                      viewModel.onNicknameChanged(value);
+                                      setState(() {});
+                                    },
+                                    onFieldSubmitted: (_) =>
+                                        _emailFocusNode.requestFocus(),
+                                  ),
+                                  button: MovielogButton(
+                                    label: '중복 확인',
+                                    isLoading:
+                                        viewModel.nicknameCheckStatus ==
+                                        CheckStatus.checking,
+                                    onPressed: viewModel.canCheckNickname
+                                        ? () => viewModel.checkNickName(
+                                            _nicknameController.text,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                if (viewModel.nicknameCheckStatus ==
+                                    CheckStatus.available)
+                                  const _AvailableText('사용할 수 있는 닉네임입니다.'),
+                                const SizedBox(height: 16),
+                                _CheckableField(
+                                  field: SignUpTextField(
+                                    label: '이메일',
+                                    hintText: '이메일 주소를 입력해주세요',
+                                    controller: _emailController,
+                                    focusNode: _emailFocusNode,
+                                    validator: SignUpValidators.email,
+                                    errorText: viewModel.emailErrorText,
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    onChanged: (value) {
+                                      viewModel.onEmailChanged(value);
+                                      setState(() {});
+                                    },
+                                    onFieldSubmitted: (_) =>
+                                        _passwordFocusNode.requestFocus(),
+                                  ),
+                                  button: MovielogButton(
+                                    label: '중복 확인',
+                                    isLoading:
+                                        viewModel.emailCheckStatus ==
+                                        CheckStatus.checking,
+                                    onPressed: viewModel.canCheckEmail
+                                        ? () => viewModel.checkEmail(
+                                            _emailController.text,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                if (viewModel.emailCheckStatus ==
+                                    CheckStatus.available)
+                                  const _AvailableText('사용할 수 있는 이메일입니다.'),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         SignUpTextField(
@@ -131,7 +183,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               setState(() => _agreedToTerms = agreed),
                         ),
                         const SizedBox(height: 8),
-                        SignUpSubmitButton(
+                        MovielogButton(
+                          label: '가입하기',
+                          width: double.infinity,
                           onPressed: _canSubmit ? _submit : null,
                         ),
                         const SizedBox(height: 16),
@@ -145,6 +199,49 @@ class _SignUpScreenState extends State<SignUpScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// 입력창과 중복 확인 버튼을 나란히 배치합니다.
+/// 버튼은 라벨을 제외한 입력창 높이에 맞춰 위쪽에 정렬합니다.
+class _CheckableField extends StatelessWidget {
+  const _CheckableField({required this.field, required this.button});
+
+  static const _labelOffset = 27.0; // 라벨 Text + SizedBox(height: 8)
+
+  final Widget field;
+  final Widget button;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: field),
+        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.only(top: _labelOffset + 4),
+          child: button,
+        ),
+      ],
+    );
+  }
+}
+
+class _AvailableText extends StatelessWidget {
+  const _AvailableText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        text,
+        style: AppTextStyles.bodySmall.copyWith(color: AppColors.success),
       ),
     );
   }

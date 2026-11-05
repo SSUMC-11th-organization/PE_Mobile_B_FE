@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:jay/widgets/common_app_bar.dart';
 import 'package:jay/widgets/edit_profile_button.dart';
 
@@ -29,6 +30,12 @@ class ProfileScreen extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(vertical: 24),
                   child: const ProfileStats(),
                 ),
+                ListTile(
+                  title: const Text('내가 등록한 평점'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/my/ratings'),
+                ),
+                const SizedBox(height: 24),
                 const FavoriteGenres(),
               ],
             ),
