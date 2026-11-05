@@ -15,6 +15,7 @@ import '../screens/my_ratings_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
 import '../view_models/movie_home_view_model.dart';
+import '../view_models/learning_member_session.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 
@@ -79,15 +80,31 @@ class AppRouter {
               GoRoute(
                 path: 'ratings',
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) =>
-                    ChangeNotifierProvider<MyRatingsViewModel>(
-                  create: (context) => MyRatingsViewModel(
-                    context.read<RatingApiService>(),
-                    context.read<TmdbMovieService>(),
-                    sampleMemberId,
-                  )..load(),
-                  child: const MyRatingsScreen(),
-                ),
+                builder: (context, state) {
+                  // 회원가입으로 받은 학습용 memberId — 아직 가입 전이면 안내만 표시
+                  final memberId =
+                      context.read<LearningMemberSession>().memberId;
+                  if (memberId == null) {
+                    return Scaffold(
+                      appBar: AppBar(
+                        centerTitle: true,
+                        title: const Text('내가 등록한 평점'),
+                        leading: const BackButton(),
+                      ),
+                      body: const Center(
+                        child: Text('학습용 회원가입이 필요합니다.'),
+                      ),
+                    );
+                  }
+                  return ChangeNotifierProvider<MyRatingsViewModel>(
+                    create: (context) => MyRatingsViewModel(
+                      context.read<RatingApiService>(),
+                      context.read<TmdbMovieService>(),
+                      memberId,
+                    )..load(),
+                    child: const MyRatingsScreen(),
+                  );
+                },
               ),
             ],
           ),

@@ -9,7 +9,8 @@ class RatingApiService {
   final Dio _dio;
 
   Future<List<RatingDto>> fetchMyRatings(int memberId) async {
-    final r = await _dio.get('/v5/members/$memberId/ratings');
+    // v6도 이 API는 CommonResponse로 감싸지 않은 배열을 그대로 반환
+    final r = await _dio.get('/v6/members/$memberId/ratings');
     return (r.data as List<dynamic>)
         .map((e) => RatingDto.fromJson(e as Map<String, dynamic>))
         .toList();

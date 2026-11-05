@@ -24,10 +24,10 @@ class MyRatingsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                '학습용 샘플 회원(memberId $sampleMemberId)의 평점입니다',
+                '학습용 회원(memberId ${context.read<MyRatingsViewModel>().memberId})의 평점입니다',
                 style: AppTextStyles.bodySmall,
               ),
             ),
