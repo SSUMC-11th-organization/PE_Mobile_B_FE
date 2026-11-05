@@ -8,7 +8,7 @@ import '../data/services/tmdb_movie_service.dart';
 import '../screens/button_width_demo_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/main_screen.dart';
-import '../screens/movie_detail_screen.dart';
+import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
 import '../screens/my_page_screen.dart';
 import '../screens/my_ratings_screen.dart';
@@ -115,12 +115,16 @@ class AppRouter {
         path: '/movies/:movieId',
         // pathParameters는 String이라 int로 파싱. 숫자가 아니면 null → 상세 화면에서 안내 표시
         // extra = 카드에서 넘긴 TmdbMovieDto. URL 직접 진입 등으로 없으면 null
-        builder: (context, state) => MovieDetailScreen(
-          movieId: int.tryParse(state.pathParameters['movieId'] ?? ''),
-          movie: state.extra is TmdbMovieDto
-              ? state.extra as TmdbMovieDto
-              : null,
-        ),
+        // extra의 id가 경로 id와 같을 때만 initialMovie로 넘김 → 아니면 Loader가 TMDB에서 다시 조회
+        builder: (context, state) {
+          final movieId = int.tryParse(state.pathParameters['movieId'] ?? '');
+          final extra = state.extra;
+          return MovieDetailLoader(
+            movieId: movieId,
+            initialMovie:
+                extra is TmdbMovieDto && extra.id == movieId ? extra : null,
+          );
+        },
       ),
     ],
   );
