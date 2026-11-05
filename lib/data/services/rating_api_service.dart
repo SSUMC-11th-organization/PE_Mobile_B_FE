@@ -31,6 +31,44 @@ class RatingApiService {
       throw StateError('평점을 등록하지 못했습니다. (응답 코드 ${r.statusCode})');
     }
   }
+
+  // PATCH /v6/members/{memberId}/ratings/{ratingId} — score·comment 전체 교체 방식
+  // comment가 null(후기 지움)이어도 키를 생략하지 않고 명시적으로 보냄
+  // 성공 응답의 result는 사용하지 않음
+  Future<void> updateRating({
+    required int memberId,
+    required int ratingId,
+    required int score,
+    String? comment,
+  }) async {
+    await _dio.patch(
+      '/v6/members/$memberId/ratings/$ratingId',
+      data: <String, dynamic>{'score': score, 'comment': comment},
+    );
+  }
+
+  // DELETE /v6/members/{memberId}/ratings/{ratingId} — 성공은 본문 없는 204만 인정
+  // 응답 본문은 파싱하지 않도록 plain으로 받고, data는 읽지 않음
+  Future<void> deleteRating({
+    required int memberId,
+    required int ratingId,
+  }) async {
+    final r = await _dio.delete(
+      '/v6/members/$memberId/ratings/$ratingId',
+      options: Options(responseType: ResponseType.plain),
+    );
+    if (r.statusCode != 204) {
+      throw StateError('평점을 삭제하지 못했습니다. (응답 코드 ${r.statusCode})');
+    }
+  }
+}
+
+// 수정/삭제 실패 중 목록이 이미 서버와 달라졌을 가능성이 있는 경우(권한 없음/이미 없음) → 목록 새로고침 필요
+bool shouldRefreshAfterRatingError(DioException error) {
+  final data = error.response?.data;
+  if (data is! Map) return false;
+  final code = data['code'];
+  return code == 'COMMON403' || code == 'COMMON404';
 }
 
 // 평점 목록 요청 실패를 화면 문구로 변환
