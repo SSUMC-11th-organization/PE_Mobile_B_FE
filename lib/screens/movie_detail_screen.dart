@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/movie.dart';
+import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/rating_dialog.dart';
+import '../widgets/tmdb_poster_image.dart';
 
 class MovieDetailScreen extends StatefulWidget {
-  const MovieDetailScreen({super.key, required this.movieId});
+  const MovieDetailScreen({super.key, required this.movieId, this.movie});
 
   final int movieId;
+  final TmdbMovieDto? movie;
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -21,7 +23,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   double _myRating = 0;
   bool _isFavorite = false;
 
-  Future<void> _openRatingDialog(Movie movie) async {
+  Future<void> _openRatingDialog(TmdbMovieDto movie) async {
     final rating = await showDialog<double>(
       context: context,
       builder: (context) => RatingDialog(initialRating: _myRating),
@@ -41,7 +43,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final movie = findMovieById(widget.movieId);
+    final movie = widget.movie;
 
     if (movie == null) {
       return Scaffold(
@@ -49,6 +51,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         body: const Center(child: Text('영화를 찾을 수 없어요.')),
       );
     }
+
+    final year = movie.releaseDate?.isNotEmpty == true
+        ? movie.releaseDate!.substring(0, 4)
+        : '연도 미정';
 
     return Scaffold(
       appBar: CommonAppBar(
@@ -71,31 +77,21 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
+              TmdbPosterImage(
+                posterPath: movie.posterPath,
                 width: double.infinity,
                 height: 260,
-                decoration: BoxDecoration(
-                  color: AppColors.lightViolet,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.movie_creation_outlined,
-                  color: AppColors.violet,
-                  size: 64,
-                ),
+                borderRadius: BorderRadius.circular(16),
               ),
               const SizedBox(height: 20),
               Text(movie.title, style: AppTextStyles.titleLarge),
               const SizedBox(height: 6),
-              Text(
-                '${movie.genre} · ${movie.year}',
-                style: AppTextStyles.bodySmall,
-              ),
+              Text(year, style: AppTextStyles.bodySmall),
               const SizedBox(height: 16),
               Row(
                 children: [
                   RatingBarIndicator(
-                    rating: movie.averageRating,
+                    rating: movie.voteAverage / 2,
                     itemCount: 5,
                     itemSize: 22,
                     itemBuilder: (context, _) =>
@@ -103,11 +99,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${movie.averageRating}',
+                    '${movie.voteAverage}',
                     style: AppTextStyles.bodyMedium,
                   ),
                 ],
               ),
+              if (movie.overview.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(movie.overview, style: AppTextStyles.bodyMedium),
+              ],
               const SizedBox(height: 24),
               if (_myRating > 0) ...[
                 Text('내가 남긴 평점', style: AppTextStyles.titleMedium),
