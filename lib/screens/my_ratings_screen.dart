@@ -255,10 +255,13 @@ class _EmptyView extends StatelessWidget {
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
+          width: double.infinity,
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 72,
@@ -281,6 +284,7 @@ class _EmptyView extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: AppColors.black,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
               const Text(
@@ -327,10 +331,13 @@ class _ErrorView extends StatelessWidget {
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
+          width: double.infinity,
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 72,
@@ -353,6 +360,7 @@ class _ErrorView extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: AppColors.black,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
               Text(
