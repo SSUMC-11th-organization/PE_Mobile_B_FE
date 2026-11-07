@@ -23,6 +23,7 @@ import '../view_models/learning_member_session.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 import '../view_models/profile_edit_view_model.dart';
+import '../view_models/session_ratings_store.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
@@ -108,31 +109,18 @@ class AppRouter {
               GoRoute(
                 path: 'ratings',
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) {
-                  // 회원가입으로 받은 학습용 memberId — 아직 가입 전이면 안내만 표시
-                  final memberId =
-                      context.read<LearningMemberSession>().memberId;
-                  if (memberId == null) {
-                    return Scaffold(
-                      appBar: AppBar(
-                        centerTitle: true,
-                        title: const Text('내가 등록한 평점'),
-                        leading: const BackButton(),
-                      ),
-                      body: const Center(
-                        child: Text('학습용 회원가입이 필요합니다.'),
-                      ),
-                    );
-                  }
-                  return ChangeNotifierProvider<MyRatingsViewModel>(
-                    create: (context) => MyRatingsViewModel(
-                      context.read<RatingApiService>(),
-                      context.read<TmdbMovieService>(),
-                      memberId,
-                    )..load(),
-                    child: const MyRatingsScreen(),
-                  );
-                },
+                // 이번 세션 평점 + (학습용 memberId를 알 때만) 공개 조회 결과
+                builder: (context, state) =>
+                    ChangeNotifierProvider<MyRatingsViewModel>(
+                  create: (context) => MyRatingsViewModel(
+                    context.read<RatingApiService>(),
+                    context.read<TmdbMovieService>(),
+                    context.read<SessionRatingsStore>(),
+                    context.read<AuthViewModel>(),
+                    context.read<LearningMemberSession>().memberId,
+                  )..load(),
+                  child: const MyRatingsScreen(),
+                ),
               ),
             ],
           ),

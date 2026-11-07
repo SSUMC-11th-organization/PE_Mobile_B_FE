@@ -88,10 +88,10 @@ class MyPageScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // 기존 학습용(v6, memberId 기반) 평점 화면 — push로 탭 위에 쌓음
+            // 이번 세션 평점 + 학습용 공개 조회 — push로 탭 위에 쌓음 ("내 평점 전체"가 아님)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('내가 등록한 평점'),
+              title: const Text('평점 기록'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/my/ratings'),
             ),

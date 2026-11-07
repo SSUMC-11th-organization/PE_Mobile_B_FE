@@ -18,9 +18,15 @@ BaseOptions _movieLogBaseOptions() => BaseOptions(
       receiveTimeout: const Duration(seconds: 10),
     );
 
+// 공개용/보호용 Dio 공통 생성 (TMDB Dio와는 별개)
+Dio _newMovieLogDio() {
+  final dio = Dio(_movieLogBaseOptions());
+  return dio;
+}
+
 // 공개용 — 로그인, 회원가입, 중복 확인, 공개 조회. Authorization 헤더를 절대 붙이지 않음
 class MovieLogPublicClient {
-  MovieLogPublicClient({Dio? dio}) : dio = dio ?? Dio(_movieLogBaseOptions());
+  MovieLogPublicClient({Dio? dio}) : dio = dio ?? _newMovieLogDio();
 
   final Dio dio;
 }
@@ -28,7 +34,7 @@ class MovieLogPublicClient {
 // 보호용 — 내 정보, 평점 쓰기. AuthInterceptor가 MovieLog JWT만 Bearer로 붙이고 세션 만료(401)를 전역 처리
 class MovieLogAuthClient {
   MovieLogAuthClient(TokenStorage tokenStorage, {Dio? dio})
-      : dio = dio ?? Dio(_movieLogBaseOptions()),
+      : dio = dio ?? _newMovieLogDio(),
         _interceptor =
             AuthInterceptor(tokenStorage, allowedHost: MovieLogConfig.host) {
     this.dio.interceptors.add(_interceptor);

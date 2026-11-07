@@ -19,7 +19,19 @@ enum MemberLoadStatus { idle, loading, success, error }
 // 보호용 Dio의 AuthInterceptor가 401(AUTH401_2/3/4)을 받으면 expireSession()을 호출 (SessionExpiryHandler)
 // 토큰·비밀번호는 필드로 보관하지 않고, print/log/화면 문구에도 쓰지 않음
 class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
-  AuthViewModel(this._authService, this._memberApi, this._tokenStorage);
+  AuthViewModel(
+    this._authService,
+    this._memberApi,
+    this._tokenStorage, {
+    this._onSessionEnded, // 호출하는 쪽에서는 onSessionEnded:로 전달
+    this._onSignedIn, // 호출하는 쪽에서는 onSignedIn:으로 전달
+  });
+
+  // 사용자 세션 데이터(이번 세션 평점, 학습용 memberId) 정리 — main.dart에서 연결
+  // logout / expireSession 때 호출. TMDB 설정·공개 영화 목록은 대상이 아님
+  final VoidCallback? _onSessionEnded;
+  // 로그인 성공 시 호출 — 다른 사용자로 전환된 경우의 정리 (로그인 이메일 전달, 비밀번호는 전달하지 않음)
+  final void Function(String email)? _onSignedIn;
 
   static const _sessionExpiredMessage = '로그인이 만료되었습니다. 다시 로그인해 주세요.';
 
@@ -146,6 +158,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
 
     // 로그인 직후에는 /v7/members/me를 호출하지 않음 — MainScreen이 loadMember()로 채움
     _clearMember();
+    _onSignedIn?.call(email);
     _status = AuthStatus.signedIn;
     _notify();
   }
@@ -202,6 +215,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
   Future<void> logout() async {
     final version = ++_sessionVersion;
     _clearMember();
+    _onSessionEnded?.call();
     _loginErrorMessage = null;
     _sessionErrorMessage = null;
 
@@ -229,6 +243,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
     }
     final version = ++_sessionVersion;
     _clearMember();
+    _onSessionEnded?.call();
     _loginErrorMessage = null;
     _sessionErrorMessage = null;
     // signedOut 전에 삭제를 끝냄 — 바로 재로그인해 저장한 새 토큰을 늦은 삭제가 지우지 않도록

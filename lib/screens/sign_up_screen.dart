@@ -54,7 +54,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!mounted) return;
     final memberId = vm.createdMemberId;
     if (vm.submitStatus == SubmitStatus.success && memberId != null) {
-      context.read<LearningMemberSession>().setMemberId(memberId);
+      context
+          .read<LearningMemberSession>()
+          .setMemberId(memberId, email: _emailController.text);
       context.go('/movies');
       return;
     }

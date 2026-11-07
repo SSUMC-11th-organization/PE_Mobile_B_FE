@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/rating_with_movie.dart';
+import '../data/services/rating_api_service.dart' show RatingActionCancelled;
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../view_models/my_ratings_view_model.dart';
@@ -9,7 +10,8 @@ import '../widgets/movielog_button.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/tmdb_poster_image.dart';
 
-// 학습용 회원의 평점 목록 화면 — 조회 + 본인 평점 수정/삭제
+// 평점 기록 화면 — 이번 세션에 등록한 평점 + (학습용 memberId를 알 때) 공개 조회 결과, 수정/삭제
+// "내 평점 전체"가 아님: 토큰만으로 전체 목록을 조회하는 API가 없고, 앱 재시작 뒤 이번 세션 평점은 복원되지 않음
 class MyRatingsScreen extends StatelessWidget {
   const MyRatingsScreen({super.key});
 
@@ -18,7 +20,7 @@ class MyRatingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('내가 등록한 평점'),
+        title: const Text('평점 기록'),
         leading: const BackButton(),
       ),
       body: SafeArea(
@@ -28,7 +30,9 @@ class MyRatingsScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                '학습용 회원(memberId ${context.read<MyRatingsViewModel>().memberId})의 평점입니다',
+                context.read<MyRatingsViewModel>().memberId == null
+                    ? '이번 로그인 중 이 기기에서 등록한 평점입니다. 앱을 다시 시작하면 표시되지 않습니다.'
+                    : '이번 로그인 중 이 기기에서 등록한 평점과 학습용 회원의 공개 평점을 함께 표시합니다.',
                 style: AppTextStyles.bodySmall,
               ),
             ),
@@ -58,7 +62,7 @@ class MyRatingsScreen extends StatelessWidget {
                     case MyRatingsLoadStatus.empty:
                       return const Center(
                         child: Text(
-                          '아직 등록한 평점이 없습니다.',
+                          '표시할 평점이 없습니다.',
                           style: AppTextStyles.bodyMedium,
                         ),
                       );
@@ -199,7 +203,7 @@ class _RatingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    movie?.title ?? '영화 정보 없음 (movieId: ${rating.movieId})',
+                    movie?.title ?? '영화 #${rating.movieId}',
                     style: AppTextStyles.titleMedium,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -227,7 +231,7 @@ class _RatingCard extends StatelessWidget {
                 ],
               ),
             ),
-            // 이 목록은 본인 평점만 있으므로 항상 수정/삭제 가능
+            // 권한이 없는 평점이면 서버가 RATING403_1로 거절 → 안내만 표시
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -272,21 +276,31 @@ class _DeleteRatingDialogState extends State<_DeleteRatingDialog> {
       await widget.onDelete();
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on RatingActionCancelled {
+      _release(); // 세션 만료 등 — 오류 문구 없이 진행 중 상태만 해제
+    } on StateError catch (e) {
+      _fail(e.message);
     } catch (_) {
-      // 실패해도 다이얼로그는 유지 → 다시 삭제하거나 취소할 수 있음
-      if (!mounted) return;
-      setState(() {
-        _isDeleting = false;
-      });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      _fail('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
+  }
+
+  void _release() {
+    if (!mounted) return;
+    setState(() {
+      _isDeleting = false;
+    });
+  }
+
+  // 실패해도 다이얼로그는 유지 → 다시 삭제하거나 취소할 수 있음
+  void _fail(String message) {
+    if (!mounted) return;
+    _release();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
   }
 
   @override

@@ -15,6 +15,7 @@ import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'view_models/auth_view_model.dart';
 import 'view_models/learning_member_session.dart';
+import 'view_models/session_ratings_store.dart';
 
 
 // 앱이 시작될 때 제일 먼저 실행되는 함수. Dart의 모든 프로그램은 main()에서 시작해
@@ -49,11 +50,20 @@ class MovieLogApp extends StatefulWidget {
 }
 
 class _MovieLogAppState extends State<MovieLogApp> {
+  // 사용자 세션 데이터 — 로그아웃/세션 만료/다른 사용자 로그인 시 비움 (TMDB 데이터와 무관)
+  final _sessionRatings = SessionRatingsStore(); // 이번 세션에 등록한 평점
+  final _learningSession = LearningMemberSession(); // 회원가입으로 받은 학습용 memberId
+
   // 앱 시작 시 저장된 토큰으로 세션 복원 → 결과에 따라 router redirect가 화면을 정함
   late final AuthViewModel _auth = AuthViewModel(
     MovieLogApp.authService,
     MovieLogApp.memberApiService,
     MovieLogApp.tokenStorage,
+    onSessionEnded: _clearUserSessionData,
+    onSignedIn: (email) {
+      _sessionRatings.clear(); // 새 로그인 세션은 빈 목록에서 시작
+      _learningSession.clearIfEmailDiffers(email); // 가입한 계정과 다르면 memberId 비움
+    },
   );
   late final GoRouter _router = AppRouter.createRouter(_auth);
 
@@ -65,11 +75,18 @@ class _MovieLogAppState extends State<MovieLogApp> {
     _auth.restoreSession();
   }
 
+  void _clearUserSessionData() {
+    _sessionRatings.clear();
+    _learningSession.clear();
+  }
+
   @override
   void dispose() {
     MovieLogApp.movieLogAuthClient.attachSession(null);
     _router.dispose();
     _auth.dispose();
+    _sessionRatings.dispose();
+    _learningSession.dispose();
     super.dispose();
   }
 
@@ -98,14 +115,20 @@ class _MovieLogAppState extends State<MovieLogApp> {
         Provider<SignUpService>(
           create: (_) => SignUpService(MovieLogApp.movieLogPublicClient.dio),
         ),
-        // 평점 v6 조회/등록/수정/삭제 — 기존 동작 유지를 위해 아직 공개용 Dio 사용 (v7 전환 시 보호용으로 이동)
+        // 평점 v7 — 등록/수정/삭제는 보호용 Dio, 회원별 공개 조회는 공개용 Dio
         Provider<RatingApiService>(
-          create: (_) =>
-              RatingApiService(MovieLogApp.movieLogPublicClient.dio),
+          create: (_) => RatingApiService(
+            MovieLogApp.movieLogPublicClient,
+            MovieLogApp.movieLogAuthClient,
+          ),
         ),
-        // 회원가입으로 받은 학습용 memberId (앱 실행 중 메모리에만 보관)
-        ChangeNotifierProvider<LearningMemberSession>(
-          create: (_) => LearningMemberSession(),
+        // 회원가입으로 받은 학습용 memberId (앱 실행 중 메모리에만 보관) — dispose는 State가 함
+        ChangeNotifierProvider<LearningMemberSession>.value(
+          value: _learningSession,
+        ),
+        // 이번 세션에 등록한 평점 (메모리에만 보관) — dispose는 State가 함
+        ChangeNotifierProvider<SessionRatingsStore>.value(
+          value: _sessionRatings,
         ),
       ],
       // MaterialApp.router = 화면 이동을 GoRouter에 맡기는 MaterialApp
