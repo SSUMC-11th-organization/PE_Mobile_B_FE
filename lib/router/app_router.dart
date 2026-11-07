@@ -7,6 +7,7 @@ import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/button_width_demo_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/login_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
@@ -14,6 +15,7 @@ import '../screens/my_page_screen.dart';
 import '../screens/my_ratings_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
+import '../view_models/auth_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/learning_member_session.dart';
 import '../view_models/movie_list_view_model.dart';
@@ -26,13 +28,23 @@ class AppRouter {
   // 최상위 Navigator — ShellRoute 하위 라우트를 하단 탭 없이 전체 화면으로 띄울 때 사용
   static final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  static final GoRouter router = GoRouter(
+  // 로그인 전에도 들어갈 수 있는 공개 화면
+  static const publicPaths = {'/login', '/register', '/dev/buttons'};
+
+  // 앱 전체에서 한 번만 생성 (main.dart의 State에서) — AuthViewModel이 바뀌면 redirect 재계산
+  static GoRouter createRouter(AuthViewModel auth) => GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/start', // 앱 켰을 때 제일 먼저 보여줄 경로
+    initialLocation: '/start', // 앱 켰을 때 제일 먼저 보여줄 경로 (세션 확인 Splash)
+    refreshListenable: auth,
+    redirect: (context, state) => redirectFor(auth.status, state.uri.path),
     routes: [
       GoRoute(
         path: '/start',
         builder: (context, state) => const StartScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: '/register',
@@ -128,6 +140,23 @@ class AppRouter {
       ),
     ],
   );
+
+  // 인증 상태별 이동 규칙 — null이면 요청한 경로 그대로
+  // - initializing/retryRequired: Splash(/start)에 머무름
+  // - signedOut/authenticating: /login과 공개 화면만 허용
+  // - signedIn: /start·/login에 있으면 /home으로 (그 외 경로는 그대로)
+  static String? redirectFor(AuthStatus status, String path) {
+    switch (status) {
+      case AuthStatus.initializing:
+      case AuthStatus.retryRequired:
+        return path == '/start' ? null : '/start';
+      case AuthStatus.signedOut:
+      case AuthStatus.authenticating:
+        return publicPaths.contains(path) ? null : '/login';
+      case AuthStatus.signedIn:
+        return path == '/start' || path == '/login' ? '/home' : null;
+    }
+  }
 
   // 현재 경로로 선택할 탭 번호를 계산 (0: 홈, 1: 영화, 2: 마이)
   static int indexFromLocation(String path) {
