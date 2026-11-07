@@ -4,7 +4,7 @@ import '../models/common_response.dart';
 import '../models/rating_dto.dart';
 import '../models/rating_request.dart';
 
-// 워크북 평점 API — 워크북 Dio(createMovieLogClient)를 주입받아 사용
+// 워크북 평점 API — MovieLog Dio(main.dart에서 공개용 클라이언트)를 주입받아 사용
 class RatingApiService {
   RatingApiService(this._dio);
 
