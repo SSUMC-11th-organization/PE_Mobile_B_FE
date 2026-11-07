@@ -6,18 +6,20 @@ class PasswordField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
+    this.errorText,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final String? errorText; // 서버가 알려준 비밀번호 오류 (클라이언트 validator와 별개)
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
       focusNode: focusNode,
-      decoration: const InputDecoration(labelText: '비밀번호'),
+      decoration: InputDecoration(labelText: '비밀번호', errorText: errorText),
       obscureText: true,
       textInputAction: TextInputAction.done,
       validator: (value) {

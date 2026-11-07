@@ -1,4 +1,4 @@
-// 워크북 평점 응답 한 건 — GET /v5/members/{memberId}/ratings 의 배열 원소
+// 워크북 평점 응답 한 건 — GET /v6/members/{memberId}/ratings 의 배열 원소
 class RatingDto {
   const RatingDto({
     required this.ratingId,

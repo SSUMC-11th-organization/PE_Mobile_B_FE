@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'core/network/movie_log_client.dart';
-import 'data/services/member_check_service.dart';
 import 'data/services/rating_api_service.dart';
+import 'data/services/sign_up_service.dart';
 import 'data/services/tmdb_movie_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
+import 'view_models/learning_member_session.dart';
 
 
 // 앱이 시작될 때 제일 먼저 실행되는 함수. Dart의 모든 프로그램은 main()에서 시작해
@@ -39,13 +40,17 @@ class MovieLogApp extends StatelessWidget {
       providers: [
         // 앱 전체에서 TmdbMovieService(= Dio 인스턴스) 하나를 공유
         Provider<TmdbMovieService>(create: (_) => TmdbMovieService()),
-        // 닉네임/이메일 중복 확인 — 워크북 Dio(movieLogClient) 사용
-        Provider<MemberCheckService>(
-          create: (_) => MemberCheckService(movieLogClient),
+        // 닉네임/이메일 중복 확인 + 회원가입 — 워크북 Dio(movieLogClient) 사용
+        Provider<SignUpService>(
+          create: (_) => SignUpService(movieLogClient),
         ),
         // 평점 조회 — 같은 워크북 Dio(movieLogClient) 재사용
         Provider<RatingApiService>(
           create: (_) => RatingApiService(movieLogClient),
+        ),
+        // 회원가입으로 받은 학습용 memberId (앱 실행 중 메모리에만 보관)
+        ChangeNotifierProvider<LearningMemberSession>(
+          create: (_) => LearningMemberSession(),
         ),
       ],
       // MaterialApp.router = 화면 이동을 GoRouter에 맡기는 MaterialApp
