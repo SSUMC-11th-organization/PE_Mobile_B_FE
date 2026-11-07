@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'core/network/movie_log_client.dart';
 import 'core/storage/token_storage.dart';
 import 'data/services/auth_service.dart';
+import 'data/services/member_api_service.dart';
 import 'data/services/rating_api_service.dart';
 import 'data/services/sign_up_service.dart';
 import 'data/services/tmdb_movie_service.dart';
@@ -38,9 +39,10 @@ class MovieLogApp extends StatefulWidget {
   static final movieLogPublicClient = MovieLogPublicClient();
   // 워크북 서버 보호용 Dio (MovieLog JWT만 Bearer로 첨부) — TMDB Dio와 별개
   static final movieLogAuthClient = MovieLogAuthClient(tokenStorage);
-  // 로그인(공개용 Dio) + 내 정보(보호용 Dio)
-  static final authService =
-      AuthService(movieLogPublicClient, movieLogAuthClient);
+  // 로그인 — 공개용 Dio
+  static final authService = AuthService(movieLogPublicClient);
+  // 내 정보 조회/닉네임 수정 — 보호용 Dio
+  static final memberApiService = MemberApiService(movieLogAuthClient);
 
   @override
   State<MovieLogApp> createState() => _MovieLogAppState();
@@ -50,6 +52,7 @@ class _MovieLogAppState extends State<MovieLogApp> {
   // 앱 시작 시 저장된 토큰으로 세션 복원 → 결과에 따라 router redirect가 화면을 정함
   late final AuthViewModel _auth = AuthViewModel(
     MovieLogApp.authService,
+    MovieLogApp.memberApiService,
     MovieLogApp.tokenStorage,
   )..restoreSession();
   late final GoRouter _router = AppRouter.createRouter(_auth);
@@ -79,6 +82,7 @@ class _MovieLogAppState extends State<MovieLogApp> {
           value: MovieLogApp.movieLogAuthClient,
         ),
         Provider<AuthService>.value(value: MovieLogApp.authService),
+        Provider<MemberApiService>.value(value: MovieLogApp.memberApiService),
         // 앱 전체 인증 상태 — dispose는 State가 직접 하므로 .value로 제공
         ChangeNotifierProvider<AuthViewModel>.value(value: _auth),
         // 닉네임/이메일 중복 확인 + 회원가입 — 공개용 Dio 사용

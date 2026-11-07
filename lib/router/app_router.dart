@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/member_api_service.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/button_width_demo_screen.dart';
@@ -13,6 +14,7 @@ import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
 import '../screens/my_page_screen.dart';
 import '../screens/my_ratings_screen.dart';
+import '../screens/profile_edit_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
 import '../view_models/auth_view_model.dart';
@@ -20,6 +22,7 @@ import '../view_models/movie_home_view_model.dart';
 import '../view_models/learning_member_session.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
+import '../view_models/profile_edit_view_model.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
@@ -88,6 +91,19 @@ class AppRouter {
             path: '/my',
             builder: (context, state) => const MyPageScreen(),
             routes: [
+              // 프로필 수정 — root Navigator에 띄움 → 하단 NavigationBar 없이 표시, pop하면 마이 탭으로
+              GoRoute(
+                path: 'profile/edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) =>
+                    ChangeNotifierProvider<ProfileEditViewModel>(
+                  create: (context) => ProfileEditViewModel(
+                    context.read<MemberApiService>(),
+                    context.read<AuthViewModel>(),
+                  ),
+                  child: const ProfileEditScreen(),
+                ),
+              ),
               // 평점 목록은 root Navigator에 띄움 → 하단 NavigationBar 없이 표시
               GoRoute(
                 path: 'ratings',

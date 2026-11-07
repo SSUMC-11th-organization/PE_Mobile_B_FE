@@ -9,6 +9,16 @@ String? apiErrorCode(DioException error) => _readString(error, 'code');
 // 서버가 내려준 사용자용 안내 문구
 String? apiErrorMessage(DioException error) => _readString(error, 'message');
 
+// 응답 자체를 받지 못한 실패 (타임아웃·연결 오류) — 재시도 안내용
+bool isNetworkError(DioException error) => switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.connectionError =>
+        true,
+      _ => false,
+    };
+
 String? _readString(DioException error, String key) {
   final data = error.response?.data;
   if (data is! Map) return null;
