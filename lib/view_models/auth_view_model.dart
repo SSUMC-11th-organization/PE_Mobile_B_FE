@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_error.dart';
+import '../core/network/auth_interceptor.dart';
 import '../core/storage/token_storage.dart';
 import '../data/models/auth_models.dart';
 import '../data/models/member_info.dart';
@@ -15,21 +16,19 @@ enum AuthStatus { initializing, signedOut, authenticating, signedIn, retryRequir
 enum MemberLoadStatus { idle, loading, success, error }
 
 // 앱 전체 인증 상태 — GoRouter refreshListenable로 연결되어 상태가 바뀌면 redirect가 다시 계산됨
+// 보호용 Dio의 AuthInterceptor가 401(AUTH401_2/3/4)을 받으면 expireSession()을 호출 (SessionExpiryHandler)
 // 토큰·비밀번호는 필드로 보관하지 않고, print/log/화면 문구에도 쓰지 않음
-class AuthViewModel extends ChangeNotifier {
+class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
   AuthViewModel(this._authService, this._memberApi, this._tokenStorage);
 
-  // GET /v7/members/me 401 중 "저장된 토큰을 버려야 하는" 코드 (만료·위조·형식 오류 등)
-  static const _invalidTokenCodes = {'AUTH401_2', 'AUTH401_3', 'AUTH401_4'};
-  // POST /v7/auth/login 401 — 이메일/비밀번호 불일치. 로그인 폼 오류로만 처리
-  static const _loginFailedCode = 'AUTH401_1';
+  static const _sessionExpiredMessage = '로그인이 만료되었습니다. 다시 로그인해 주세요.';
 
   final AuthService _authService;
   final MemberApiService _memberApi;
   final TokenStorage _tokenStorage;
 
   AuthStatus _status = AuthStatus.initializing;
-  // 세션이 바뀔 때(복원 시작, 로그인 시작, 로그아웃)마다 1씩 증가
+  // 세션이 바뀔 때(복원 시작, 로그인 시작, 로그아웃, 세션 만료)마다 1씩 증가
   // 비동기 응답이 돌아왔을 때 자기 버전이 아니면 상태를 건드리지 않고 버림
   int _sessionVersion = 0;
   // restoreSession 성공 시 /v7/members/me 결과. 로그인 직후에는 null → loadMember()로 채움
@@ -38,10 +37,14 @@ class AuthViewModel extends ChangeNotifier {
   String? _memberErrorMessage; // 내 정보 조회 실패 (마이페이지에 표시)
   String? _loginErrorMessage; // 로그인 요청 실패 / 토큰 저장 실패 (로그인 화면 폼 아래 표시)
   String? _sessionErrorMessage; // 세션 확인 실패 (재시도 화면에 표시)
-  String? _signedOutNotice; // 세션 만료 등으로 로그아웃된 이유 (로그인 화면 안내)
+  String? _signedOutNotice; // 로그아웃 중 토큰 삭제 실패 안내 (로그인 화면 폼 위 문구)
+  // 세션 만료 안내 — expireSession()에서만 설정, 로그인 화면이 Snackbar로 한 번 보여주고 비움
+  // 정상 로그아웃·앱 시작 시 토큰 없음에서는 설정되지 않음
+  String? _sessionExpiredNotice;
   bool _disposed = false;
 
   AuthStatus get status => _status;
+  @override
   int get sessionVersion => _sessionVersion;
   MemberInfo? get member => _member;
   MemberLoadStatus get memberLoadStatus => _memberLoadStatus;
@@ -49,6 +52,7 @@ class AuthViewModel extends ChangeNotifier {
   String? get loginErrorMessage => _loginErrorMessage;
   String? get sessionErrorMessage => _sessionErrorMessage;
   String? get signedOutNotice => _signedOutNotice;
+  String? get sessionExpiredNotice => _sessionExpiredNotice;
   bool get isAuthenticating => _status == AuthStatus.authenticating;
 
   // 앱 시작(및 재시도 화면의 재시도) — 토큰이 있고 /v7/members/me가
@@ -83,17 +87,16 @@ class AuthViewModel extends ChangeNotifier {
       _status = AuthStatus.signedIn;
       _notify();
     } on DioException catch (e) {
+      // 401(AUTH401_2/3/4)은 인터셉터가 이미 expireSession을 호출해 버전이 바뀌었으므로 여기서 끝남
       if (!_isCurrent(version)) return;
-      if (e.response?.statusCode == 401 &&
-          _invalidTokenCodes.contains(apiErrorCode(e))) {
-        // 서버가 토큰이 유효하지 않다고 확정한 경우에만 삭제
-        await _deleteTokenQuietly();
-        if (!_isCurrent(version)) return;
-        _setSignedOut(notice: '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+      final kind = classifyApiError(e);
+      if (kind == ApiErrorKind.sessionExpired) {
+        // 인터셉터가 연결되지 않은 경우를 위한 같은 경로 (버전 확인으로 중복 실행 없음)
+        await expireSession(sessionVersion: version);
         return;
       }
-      // 네트워크 실패·서버 오류·그 외 401 → 토큰은 지우지 않고 재시도 대기
-      _setRetryRequired(_sessionCheckMessage(e));
+      // 네트워크 실패·서버 오류·그 외 401 등 → 토큰은 지우지 않고 재시도 대기
+      _setRetryRequired(_sessionCheckMessage(kind));
     } on InvalidApiResponseException {
       if (!_isCurrent(version)) return;
       _setRetryRequired('로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
@@ -107,6 +110,7 @@ class AuthViewModel extends ChangeNotifier {
     _status = AuthStatus.authenticating;
     _loginErrorMessage = null;
     _signedOutNotice = null;
+    _sessionExpiredNotice = null;
     _notify();
 
     final LoginResult result;
@@ -116,7 +120,7 @@ class AuthViewModel extends ChangeNotifier {
       );
     } on DioException catch (e) {
       if (!_isCurrent(version)) return;
-      _failLogin(_loginErrorFor(e));
+      _failLogin(_loginErrorFor(e)); // 공개용 Dio — 401(AUTH401_1)은 세션 만료로 가지 않음
       return;
     } on InvalidApiResponseException {
       if (!_isCurrent(version)) return;
@@ -148,7 +152,7 @@ class AuthViewModel extends ChangeNotifier {
 
   // signedIn인데 member가 없을 때(로그인 직후 등) 한 번 조회 — MainScreen이 처음 열릴 때 호출
   // restoreSession이 이미 채웠거나 조회 중이면 다시 부르지 않음
-  // 401도 지금은 일반 오류로만 표시 (토큰 삭제·로그아웃 없음)
+  // 401(AUTH401_2/3/4)은 expireSession 경로로만 처리하고 오류 문구는 남기지 않음
   Future<void> loadMember() async {
     if (_status != AuthStatus.signedIn) return;
     if (_member != null || _memberLoadStatus == MemberLoadStatus.loading) return;
@@ -163,11 +167,14 @@ class AuthViewModel extends ChangeNotifier {
       _member = me;
       _memberLoadStatus = MemberLoadStatus.success;
     } on DioException catch (e) {
-      if (!_isCurrent(version)) return;
+      if (!_isCurrent(version)) return; // 인터셉터가 만료 처리했으면 여기서 끝남
+      final kind = classifyApiError(e);
+      if (kind == ApiErrorKind.sessionExpired) {
+        await expireSession(sessionVersion: version);
+        return;
+      }
       _memberLoadStatus = MemberLoadStatus.error;
-      _memberErrorMessage = isNetworkError(e)
-          ? '네트워크 연결을 확인한 뒤 다시 시도해 주세요.'
-          : apiErrorMessage(e) ?? '내 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      _memberErrorMessage = _memberLoadMessage(kind, apiErrorMessage(e));
     } on InvalidApiResponseException {
       if (!_isCurrent(version)) return;
       _memberLoadStatus = MemberLoadStatus.error;
@@ -210,6 +217,37 @@ class AuthViewModel extends ChangeNotifier {
     _notify();
   }
 
+  // 세션 만료 — 보호 요청이 401(AUTH401_2/3/4)을 받았을 때 (인터셉터·restoreSession·loadMember 공통 경로)
+  // 요청 시점 버전이 현재와 다르면(로그아웃·재로그인·이미 만료 처리) 조용히 버림
+  // → 동시에 여러 401이 와도 첫 번째만 반영 (버전을 await 전에 올리므로 후속 응답은 모두 stale)
+  // 네트워크·5xx·403·409·400은 여기로 오지 않음 → 토큰 유지
+  @override
+  Future<void> expireSession({required int sessionVersion}) async {
+    if (!_isCurrent(sessionVersion)) return;
+    if (_status != AuthStatus.signedIn && _status != AuthStatus.initializing) {
+      return;
+    }
+    final version = ++_sessionVersion;
+    _clearMember();
+    _loginErrorMessage = null;
+    _sessionErrorMessage = null;
+    // signedOut 전에 삭제를 끝냄 — 바로 재로그인해 저장한 새 토큰을 늦은 삭제가 지우지 않도록
+    await _deleteTokenQuietly();
+    if (!_isCurrent(version)) return;
+    _signedOutNotice = null;
+    _sessionExpiredNotice = _sessionExpiredMessage;
+    _status = AuthStatus.signedOut; // redirect → /login
+    _notify();
+  }
+
+  // 로그인 화면이 Snackbar로 한 번 보여줄 만료 안내를 꺼내고 비움 (두 번째 호출부터 null)
+  // 화면 표시용으로만 비우므로 notifyListeners 하지 않음
+  String? takeSessionExpiredNotice() {
+    final notice = _sessionExpiredNotice;
+    _sessionExpiredNotice = null;
+    return notice;
+  }
+
   // 입력이 바뀌면 이전 로그인 실패 문구를 지움
   void clearLoginError() {
     if (_loginErrorMessage == null && _signedOutNotice == null) return;
@@ -219,24 +257,32 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   String _loginErrorFor(DioException e) {
-    if (isNetworkError(e)) return '네트워크 연결을 확인해 주세요.';
-    final status = e.response?.statusCode;
     final serverMessage = apiErrorMessage(e);
-    if (status == 401 && apiErrorCode(e) == _loginFailedCode) {
-      return serverMessage ?? '이메일 또는 비밀번호가 올바르지 않습니다.';
-    }
-    if (status == 400) return serverMessage ?? '입력한 내용을 다시 확인해 주세요.';
-    return serverMessage ?? '로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+    return switch (classifyApiError(e)) {
+      ApiErrorKind.network => '네트워크 연결을 확인해 주세요.',
+      ApiErrorKind.loginFailed =>
+        serverMessage ?? '이메일 또는 비밀번호가 올바르지 않습니다.',
+      ApiErrorKind.validation => serverMessage ?? '입력한 내용을 다시 확인해 주세요.',
+      ApiErrorKind.server => '서버에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+      _ => serverMessage ?? '로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+    };
   }
 
-  String _sessionCheckMessage(DioException e) {
-    if (isNetworkError(e)) {
-      return '서버에 연결하지 못해 로그인 상태를 확인하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.';
-    }
-    final status = e.response?.statusCode;
-    return '로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-        '${status == null ? '' : ' ($status)'}';
-  }
+  String _sessionCheckMessage(ApiErrorKind kind) => switch (kind) {
+        ApiErrorKind.network =>
+          '서버에 연결하지 못해 로그인 상태를 확인하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+        ApiErrorKind.server =>
+          '서버에 문제가 있어 로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        _ => '로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      };
+
+  String _memberLoadMessage(ApiErrorKind kind, String? serverMessage) =>
+      switch (kind) {
+        ApiErrorKind.network => '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
+        ApiErrorKind.server => '서버에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+        ApiErrorKind.forbidden => serverMessage ?? '내 정보를 볼 권한이 없습니다.',
+        _ => serverMessage ?? '내 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      };
 
   void _failLogin(String message) {
     _loginErrorMessage = message;
@@ -250,9 +296,10 @@ class AuthViewModel extends ChangeNotifier {
     _memberErrorMessage = null;
   }
 
-  void _setSignedOut({String? notice}) {
+  // 앱 시작 시 토큰 없음 — 만료 안내 없이 signedOut
+  void _setSignedOut() {
     _clearMember();
-    _signedOutNotice = notice;
+    _signedOutNotice = null;
     _status = AuthStatus.signedOut;
     _notify();
   }
@@ -267,7 +314,7 @@ class AuthViewModel extends ChangeNotifier {
     try {
       await _tokenStorage.deleteAccessToken();
     } catch (_) {
-      // 삭제 실패해도 다음 세션 확인에서 다시 401 → 삭제를 시도함
+      // 삭제 실패해도 다음 세션 확인에서 다시 401 → 만료 처리에서 삭제를 다시 시도함
     }
   }
 

@@ -48,15 +48,33 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {}); // 버튼 활성 상태 갱신
   }
 
+  // 세션 만료 안내를 Snackbar로 한 번만 표시 — take가 값을 비우므로 다시 build돼도 반복되지 않음
+  // 정상 로그아웃·앱 시작 시 토큰 없음에서는 안내가 설정되지 않아 표시되지 않음
+  void _showSessionExpiredNotice() {
+    if (!mounted) return;
+    final message = context.read<AuthViewModel>().takeSessionExpiredNotice();
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthViewModel>();
+    if (auth.sessionExpiredNotice != null) {
+      // build 중에는 Snackbar를 띄울 수 없으므로 프레임 이후 표시
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _showSessionExpiredNotice());
+    }
     final busy = auth.isAuthenticating;
     final canSubmit =
         EmailField.pattern.hasMatch(_emailController.text.trim()) &&
             _passwordController.text.isNotEmpty;
     final error = auth.loginErrorMessage;
-    final notice = auth.signedOutNotice;
+    final notice = auth.signedOutNotice; // 로그아웃 중 토큰 삭제 실패 안내
 
     return PopScope(
       canPop: !busy,

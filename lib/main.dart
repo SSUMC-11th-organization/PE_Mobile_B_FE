@@ -54,11 +54,20 @@ class _MovieLogAppState extends State<MovieLogApp> {
     MovieLogApp.authService,
     MovieLogApp.memberApiService,
     MovieLogApp.tokenStorage,
-  )..restoreSession();
+  );
   late final GoRouter _router = AppRouter.createRouter(_auth);
 
   @override
+  void initState() {
+    super.initState();
+    // 보호용 Dio의 401(AUTH401_2/3/4) → AuthViewModel.expireSession — 세션 복원(/me)보다 먼저 연결
+    MovieLogApp.movieLogAuthClient.attachSession(_auth);
+    _auth.restoreSession();
+  }
+
+  @override
   void dispose() {
+    MovieLogApp.movieLogAuthClient.attachSession(null);
     _router.dispose();
     _auth.dispose();
     super.dispose();

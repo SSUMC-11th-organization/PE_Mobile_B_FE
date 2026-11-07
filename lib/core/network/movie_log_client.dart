@@ -25,14 +25,19 @@ class MovieLogPublicClient {
   final Dio dio;
 }
 
-// 보호용 — 내 정보, 평점 쓰기. AuthInterceptor가 MovieLog JWT만 Bearer로 붙임
+// 보호용 — 내 정보, 평점 쓰기. AuthInterceptor가 MovieLog JWT만 Bearer로 붙이고 세션 만료(401)를 전역 처리
 class MovieLogAuthClient {
   MovieLogAuthClient(TokenStorage tokenStorage, {Dio? dio})
-      : dio = dio ?? Dio(_movieLogBaseOptions()) {
-    this.dio.interceptors.add(
-          AuthInterceptor(tokenStorage, allowedHost: MovieLogConfig.host),
-        );
+      : dio = dio ?? Dio(_movieLogBaseOptions()),
+        _interceptor =
+            AuthInterceptor(tokenStorage, allowedHost: MovieLogConfig.host) {
+    this.dio.interceptors.add(_interceptor);
   }
 
   final Dio dio;
+  final AuthInterceptor _interceptor;
+
+  // 세션 만료를 처리할 대상 연결/해제 (main.dart에서 AuthViewModel 생성 직후 연결)
+  void attachSession(SessionExpiryHandler? handler) =>
+      _interceptor.sessionHandler = handler;
 }

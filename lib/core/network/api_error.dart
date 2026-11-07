@@ -19,6 +19,38 @@ bool isNetworkError(DioException error) => switch (error.type) {
       _ => false,
     };
 
+// 화면·ViewModel이 상태코드/코드를 직접 비교하지 않도록 오류를 한 종류로 분류
+enum ApiErrorKind {
+  sessionExpired, // 401 + AUTH401_2/3/4 — 보호 요청의 토큰이 더 이상 유효하지 않음 (전역 처리)
+  loginFailed, // 401 + AUTH401_1 — 로그인 자격 증명 불일치 (세션 만료 아님)
+  forbidden, // 403
+  conflict, // 409
+  validation, // 400
+  network, // 응답 없음 (타임아웃·연결 오류)
+  server, // 5xx
+  unknown, // 그 외 (다른 401 코드, 404 등)
+}
+
+const _sessionExpiredCodes = {'AUTH401_2', 'AUTH401_3', 'AUTH401_4'};
+const _loginFailedCode = 'AUTH401_1';
+
+ApiErrorKind classifyApiError(DioException error) {
+  if (isNetworkError(error)) return ApiErrorKind.network;
+  final status = error.response?.statusCode;
+  if (status == null) return ApiErrorKind.unknown;
+  if (status == 401) {
+    final code = apiErrorCode(error);
+    if (code == _loginFailedCode) return ApiErrorKind.loginFailed;
+    if (_sessionExpiredCodes.contains(code)) return ApiErrorKind.sessionExpired;
+    return ApiErrorKind.unknown;
+  }
+  if (status == 403) return ApiErrorKind.forbidden;
+  if (status == 409) return ApiErrorKind.conflict;
+  if (status == 400) return ApiErrorKind.validation;
+  if (status >= 500) return ApiErrorKind.server;
+  return ApiErrorKind.unknown;
+}
+
 String? _readString(DioException error, String key) {
   final data = error.response?.data;
   if (data is! Map) return null;
