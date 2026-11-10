@@ -11,14 +11,15 @@ const int sampleMemberId = 1;
 
 enum MyRatingsLoadStatus { idle, loading, success, empty, error }
 
-class MyRatingViewModel extends ChangeNotifier {
-  MyRatingViewModel(this._service, this._movieService, this.memberId);
+class MyRatingsViewModel extends ChangeNotifier {
+  MyRatingsViewModel(this._service, this._movieService, this.memberId);
   final RatingApiService _service;
   final TmdbMovieService _movieService;
   final int memberId;
   final Map<int, TmdbMovieDto?> _movieCache = {};
   int _requestVersion = 0;
   bool _disposed = false;
+  String? refreshWarning;
 
   List<RatingWithMovie> ratings = const [];
   MyRatingsLoadStatus status = MyRatingsLoadStatus.idle;
@@ -28,6 +29,7 @@ class MyRatingViewModel extends ChangeNotifier {
     final version = ++_requestVersion;
     status = MyRatingsLoadStatus.loading;
     message = null;
+    refreshWarning = null; // 이전 쓰기의 재조회 경고가 일반 조회 실패에 남지 않게 합니다.
     notifyListeners();
     try {
       final rawRatings = await _service.fetchMyRatings(memberId);
@@ -64,6 +66,49 @@ class MyRatingViewModel extends ChangeNotifier {
       message = writeMyRatingsErrorMessage(error);
     }
     if (!_disposed && version == _requestVersion) notifyListeners();
+  }
+
+  Future<void> _refreshAfterWrite() async {
+    await load();
+    if (status == MyRatingsLoadStatus.error) {
+      refreshWarning = '저장은 완료됐지만 목록을 불러오지 못했습니다. 조회만 다시 시도해 주세요.';
+      notifyListeners();
+    } else {
+      refreshWarning = null;
+    }
+  }
+
+  Future<void> updateRating({
+    required int ratingId,
+    required int score,
+    String? comment,
+  }) async {
+    try {
+      await _service.updateRating(
+        memberId: memberId,
+        ratingId: ratingId,
+        score: score,
+        comment: comment,
+      );
+    } on DioException catch (error) {
+      message = writeErrorMessage(error);
+      notifyListeners();
+      if (shouldRefreshAfterRatingError(error)) await load();
+      rethrow;
+    }
+    await _refreshAfterWrite();
+  }
+
+  Future<void> deleteRating(int ratingId) async {
+    try {
+      await _service.deleteRating(memberId: memberId, ratingId: ratingId);
+    } on DioException catch (error) {
+      message = writeErrorMessage(error);
+      notifyListeners();
+      if (shouldRefreshAfterRatingError(error)) await load();
+      rethrow;
+    }
+    await _refreshAfterWrite();
   }
 
   @override
