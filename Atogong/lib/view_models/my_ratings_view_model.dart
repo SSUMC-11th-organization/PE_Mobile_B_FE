@@ -20,11 +20,13 @@ class MyRatingsViewModel extends ChangeNotifier {
   List<RatingWithMovie> ratings = const [];
   MyRatingsLoadStatus status = MyRatingsLoadStatus.idle;
   String? message;
+  String? refreshWarning; // 쓰기는 성공했는데 그 뒤 목록 재조회(GET)만 실패했을 때의 안내
 
   Future<void> load() async {
     final version = ++_requestVersion;
     status = MyRatingsLoadStatus.loading;
     message = null;
+    refreshWarning = null;
     notifyListeners();
     try {
       final rawRatings = await _service.fetchMyRatings(memberId);
@@ -61,6 +63,57 @@ class MyRatingsViewModel extends ChangeNotifier {
       message = writeMyRatingsErrorMessage(error);
     }
     if (!_disposed && version == _requestVersion) notifyListeners();
+  }
+
+  // ---------- 수정·삭제 (7주차) ----------
+  // 쓰기 성공 뒤 목록을 서버 상태와 맞춤. 여기서의 GET 실패는 "저장 실패"가 아니므로 다시 던지지 않음
+  Future<void> _refreshAfterWrite() async {
+    await load(); // load()는 GET 실패를 status=error로 기록
+    if (_disposed) return;
+    if (status == MyRatingsLoadStatus.error) {
+      refreshWarning = '저장은 완료됐지만 목록을 불러오지 못했습니다. 조회만 다시 시도해 주세요.';
+      notifyListeners();
+    } else {
+      refreshWarning = null;
+    }
+  }
+
+  Future<void> updateRating({
+    required int ratingId,
+    required int score,
+    String? comment,
+  }) async {
+    try {
+      await _service.updateRating(
+        memberId: memberId,
+        ratingId: ratingId,
+        score: score,
+        comment: comment,
+      );
+    } on DioException catch (error) {
+      if (_disposed) rethrow;
+      message = writeErrorMessage(error);
+      notifyListeners();
+      // 403·404는 화면 목록이 서버와 어긋났다는 뜻이라 다시 조회해서 맞춤
+      if (shouldRefreshAfterRatingError(error)) await load();
+      rethrow; // 쓰기 실패일 때만 Dialog가 실패로 처리
+    }
+    if (_disposed) return; // 화면을 떠난 뒤 도착한 응답은 반영하지 않음
+    await _refreshAfterWrite();
+  }
+
+  Future<void> deleteRating(int ratingId) async {
+    try {
+      await _service.deleteRating(memberId: memberId, ratingId: ratingId);
+    } on DioException catch (error) {
+      if (_disposed) rethrow;
+      message = writeErrorMessage(error);
+      notifyListeners();
+      if (shouldRefreshAfterRatingError(error)) await load();
+      rethrow;
+    }
+    if (_disposed) return;
+    await _refreshAfterWrite();
   }
 
   @override

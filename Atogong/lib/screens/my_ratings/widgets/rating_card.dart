@@ -5,9 +5,16 @@ import '../../../widgets/tmdb_poster_image.dart';
 
 /// 평점 한 건. 영화 정보(TMDB)를 못 찾았으면 제목·포스터만 placeholder, 평점 기록은 유지
 class RatingCard extends StatelessWidget {
-  const RatingCard({super.key, required this.entry});
+  const RatingCard({
+    super.key,
+    required this.entry,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final RatingWithMovie entry;
+  final VoidCallback? onEdit; // 7주차: 카드 오른쪽 개별 수정·삭제 버튼
+  final VoidCallback? onDelete;
 
   String _formatDate(DateTime date) {
     final local = date.toLocal();
@@ -78,6 +85,25 @@ class RatingCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (onEdit != null || onDelete != null)
+              Column(
+                children: [
+                  if (onEdit != null)
+                    IconButton(
+                      tooltip: '수정',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: onEdit,
+                    ),
+                  if (onDelete != null)
+                    IconButton(
+                      tooltip: '삭제',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: onDelete,
+                    ),
+                ],
+              ),
           ],
         ),
       ),
