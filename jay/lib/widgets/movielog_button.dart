@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:jay/theme/app_colors.dart';
 
-class MovielogButton extends StatelessWidget {
-  const MovielogButton({
+class MovieLogButton extends StatelessWidget {
+  const MovieLogButton({
     super.key,
     required this.label,
     required this.onPressed,

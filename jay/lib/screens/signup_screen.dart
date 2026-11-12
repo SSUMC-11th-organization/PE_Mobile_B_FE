@@ -5,9 +5,11 @@ import 'package:jay/widgets/common_app_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/models/create_member_request.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/signup_validators.dart';
+import '../view_models/learning_member_session.dart';
 import '../view_models/signup_view_model.dart';
 import '../widgets/login_prompt.dart';
 import '../widgets/movielog_button.dart';
@@ -49,18 +51,50 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('회원가입 정보가 확인되었습니다.')));
-    context.go('/home');
+    final viewModel = context.read<SignupViewModel>();
+    await viewModel.submit(
+      CreateMemberRequest(
+        email: _emailController.text,
+        password: _passwordController.text,
+        nickname: _nicknameController.text,
+      ),
+    );
+    if (!mounted) return;
+
+    if (viewModel.submitStatus == SubmitStatus.success &&
+        viewModel.createdMemberId != null) {
+      // 가입 결과의 memberId를 학습용 세션에 저장 → 평점 요청에서 사용
+      context.read<LearningMemberSession>().setMemberId(
+        viewModel.createdMemberId!,
+      );
+      context.go('/movies');
+      return;
+    }
+    if (viewModel.snackbarMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(viewModel.snackbarMessage!)),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 제출 중에는 뒤로가기·스와이프 백을 막습니다. (Challenge)
+    return Consumer<SignupViewModel>(
+      builder: (context, viewModel, child) => PopScope(
+        canPop: viewModel.submitStatus != SubmitStatus.submitting,
+        child: child!,
+      ),
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(title: '회원가입', centerTitle: true),
       body: SafeArea(
@@ -110,7 +144,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     onFieldSubmitted: (_) =>
                                         _emailFocusNode.requestFocus(),
                                   ),
-                                  button: MovielogButton(
+                                  button: MovieLogButton(
                                     label: '중복 확인',
                                     isLoading:
                                         viewModel.nicknameCheckStatus ==
@@ -143,7 +177,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     onFieldSubmitted: (_) =>
                                         _passwordFocusNode.requestFocus(),
                                   ),
-                                  button: MovielogButton(
+                                  button: MovieLogButton(
                                     label: '중복 확인',
                                     isLoading:
                                         viewModel.emailCheckStatus ==
@@ -163,17 +197,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        SignUpTextField(
-                          label: '비밀번호',
-                          hintText: '비밀번호를 입력해주세요',
-                          controller: _passwordController,
-                          focusNode: _passwordFocusNode,
-                          validator: SignUpValidators.password,
-                          obscureText: true,
-                          textInputAction: TextInputAction.done,
-                          onChanged: (_) => setState(() {}),
-                          onFieldSubmitted: (_) =>
-                              FocusScope.of(context).unfocus(),
+                        Consumer<SignupViewModel>(
+                          builder: (context, viewModel, child) {
+                            return SignUpTextField(
+                              label: '비밀번호',
+                              hintText: '비밀번호를 입력해주세요',
+                              controller: _passwordController,
+                              focusNode: _passwordFocusNode,
+                              validator: SignUpValidators.password,
+                              errorText:
+                                  viewModel.passwordErrorText, // 서버 400 에러
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                              onChanged: (_) {
+                                viewModel
+                                    .onPasswordChanged(); // 다시 입력하면 서버 에러 지우기
+                                setState(() {});
+                              },
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).unfocus(),
+                            );
+                          },
                         ),
                         const Spacer(),
                         const SizedBox(height: 24),
@@ -183,10 +227,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               setState(() => _agreedToTerms = agreed),
                         ),
                         const SizedBox(height: 8),
-                        MovielogButton(
-                          label: '가입하기',
-                          width: double.infinity,
-                          onPressed: _canSubmit ? _submit : null,
+                        Consumer<SignupViewModel>(
+                          builder: (context, viewModel, child) {
+                            final isSubmitting =
+                                viewModel.submitStatus ==
+                                SubmitStatus.submitting;
+                            // 로컬 검증 + 닉네임·이메일 중복 확인 통과 + 제출 중 아님
+                            final canSubmit =
+                                _canSubmit &&
+                                viewModel.nicknameCheckStatus ==
+                                    CheckStatus.available &&
+                                viewModel.emailCheckStatus ==
+                                    CheckStatus.available &&
+                                !isSubmitting;
+                            return MovieLogButton(
+                              label: '가입하기',
+                              width: double.infinity,
+                              isLoading: isSubmitting,
+                              onPressed: canSubmit ? _submit : null,
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         // 로그인 화면이 아직 없으므로 동작은 연결하지 않습니다.

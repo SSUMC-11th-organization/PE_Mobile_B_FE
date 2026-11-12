@@ -1,7 +1,12 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:jay/data/models/rating_dto.dart';
+import 'package:jay/data/services/rating_api_service.dart';
 import 'package:jay/view_models/my_rating_view_model.dart';
 import 'package:jay/widgets/common_app_bar.dart';
 import 'package:jay/widgets/movie_list_states.dart';
+import 'package:jay/widgets/movielog_button.dart';
+import 'package:jay/widgets/rating_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:jay/data/models/rating_with_movie.dart';
 import 'package:jay/theme/app_colors.dart';
@@ -18,7 +23,7 @@ class MyRatingsScreen extends StatelessWidget {
     return Scaffold(
       // leading을 지정하지 않으면 pop 가능한 화면에서 BackButton이 자동으로 표시됩니다.
       appBar: const CommonAppBar(title: '내가 등록한 평점', centerTitle: true),
-      body: Consumer<MyRatingViewModel>(
+      body: Consumer<MyRatingsViewModel>(
         builder: (context, viewModel, child) {
           switch (viewModel.status) {
             case MyRatingsLoadStatus.idle:
@@ -28,7 +33,8 @@ class MyRatingsScreen extends StatelessWidget {
               return const Center(child: Text('등록된 평점이 없습니다.'));
             case MyRatingsLoadStatus.error:
               return MovieListError(
-                message: viewModel.message,
+                // 저장은 성공했지만 재조회만 실패한 경우를 구분해서 안내합니다.
+                message: viewModel.refreshWarning ?? viewModel.message,
                 onRetry: viewModel.load,
               );
             case MyRatingsLoadStatus.success:
@@ -123,6 +129,29 @@ class _RatingCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          // 카드 오른쪽 개별 수정·삭제 버튼
+          Column(
+            children: [
+              TextButton(
+                onPressed: () => onEditPressed(context, rating),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.violetLight,
+                  foregroundColor: AppColors.violet,
+                ),
+                child: const Text('수정'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => onDeletePressed(context, rating),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red.shade800,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -133,5 +162,90 @@ class _RatingCard extends StatelessWidget {
     final month = local.month.toString().padLeft(2, '0');
     final day = local.day.toString().padLeft(2, '0');
     return '${local.year}.$month.$day';
+  }
+}
+
+Future<void> onEditPressed(BuildContext context, RatingDto rating) async {
+  final saved = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false, // 저장 중 바깥 탭으로 닫히는 것도 막습니다.
+    builder: (_) => RatingDialog(
+      initialScore: rating.score,
+      initialComment: rating.comment, // null이면 TextField가 빈 칸으로 시작합니다.
+      onSubmit: (score, comment) =>
+          context.read<MyRatingsViewModel>().updateRating(
+            ratingId: rating.ratingId,
+            score: score,
+            comment: comment,
+          ),
+    ),
+  );
+
+  if (!context.mounted || saved != true) return;
+}
+
+Future<void> onDeletePressed(BuildContext context, RatingDto rating) async {
+  await showDialog<bool>(
+    context: context,
+    barrierDismissible: false, // 삭제 중 바깥 탭으로 닫히는 것도 막습니다.
+    builder: (_) => _DeleteRatingDialog(
+      onConfirm: () =>
+          context.read<MyRatingsViewModel>().deleteRating(rating.ratingId),
+    ),
+  );
+  // Dialog는 실제로 삭제까지 마쳤을 때만 true를 반환합니다.
+  // 성공 후 목록 재조회는 deleteRating 내부에서 처리하므로 여기서 할 일은 없습니다.
+}
+
+class _DeleteRatingDialog extends StatefulWidget {
+  const _DeleteRatingDialog({required this.onConfirm});
+  final Future<void> Function() onConfirm;
+
+  @override
+  State<StatefulWidget> createState() => _DeleteRatingDialogState();
+}
+
+class _DeleteRatingDialogState extends State<_DeleteRatingDialog> {
+  bool _isDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    return PopScope(
+      canPop: !_isDeleting,
+      child: AlertDialog(
+        title: const Text('평점을 삭제할까요?'),
+        content: const Text('삭제한 평점은 복구할 수 없습니다.'),
+        actions: [
+          MovieLogButton(
+            label: '취소',
+            onPressed: _isDeleting ? null : () => Navigator.pop(context, false),
+          ),
+          MovieLogButton(
+            label: '삭제',
+            isLoading: _isDeleting,
+            onPressed: _isDeleting ? null : _onConfirm,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onConfirm() async {
+    setState(() => _isDeleting = true);
+    try {
+      await widget.onConfirm();
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      // 403(본인 평점 아님)·404(평점 없음)를 서버 message로 구분해서 안내합니다.
+      final message = error is DioException
+          ? writeErrorMessage(error)
+          : '삭제하지 못했습니다. 잠시 후 다시 시도해주세요.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
