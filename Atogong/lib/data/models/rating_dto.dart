@@ -1,4 +1,4 @@
-/// GET /v5/members/{memberId}/ratings 의 항목 하나
+/// GET /v6/members/{memberId}/ratings 의 항목 하나
 class RatingDto {
   const RatingDto({
     required this.ratingId,

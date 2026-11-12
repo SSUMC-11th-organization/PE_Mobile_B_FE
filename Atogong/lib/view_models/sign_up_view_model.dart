@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/services/member_check_service.dart';
+import '../data/models/create_member_request.dart';
+import '../data/services/sign_up_service.dart';
+import 'submit_status.dart';
 
 /// idle: 확인 전/입력 변경으로 무효화, checking: 요청 중,
 /// available: 사용 가능, duplicated: 서버가 중복이라 응답, error: 통신 실패
@@ -9,7 +11,7 @@ enum CheckStatus { idle, checking, available, duplicated, error }
 
 class SignUpViewModel extends ChangeNotifier {
   SignUpViewModel(this._service);
-  final MemberCheckService _service;
+  final SignUpService _service;
 
   // ---------- 닉네임 ----------
   CheckStatus nicknameCheckStatus = CheckStatus.idle;
@@ -131,6 +133,56 @@ class SignUpViewModel extends ChangeNotifier {
       emailErrorText = '중복 확인에 실패했습니다. 다시 시도해 주세요.';
     }
     if (!_disposed && version == _emailRequestVersion) notifyListeners();
+  }
+
+  // ---------- 회원가입 제출 (7주차) ----------
+  SubmitStatus submitStatus = SubmitStatus.idle;
+  int? createdMemberId; // 가입 성공 응답에서 읽은 실제 ID
+  String? passwordErrorText; // 400 중 비밀번호 형식 오류 → 비밀번호 입력칸에 표시
+  String? snackbarMessage; // 그 외 400·409 등 입력칸에 붙일 수 없는 오류 → Snackbar로 한 번 표시
+
+  void onPasswordChanged() {
+    if (passwordErrorText == null) return;
+    passwordErrorText = null; // 값을 고치면 서버가 거부했던 이전 결과는 무효
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> submit(CreateMemberRequest request) async {
+    if (submitStatus == SubmitStatus.submitting) return; // 연속 탭 방지
+    submitStatus = SubmitStatus.submitting;
+    createdMemberId = null;
+    passwordErrorText = null;
+    snackbarMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _service.signUp(request);
+      if (_disposed) return;
+      final id = response.result?.memberId;
+      if (id == null) throw StateError('회원가입 결과에 memberId가 없습니다.');
+      createdMemberId = id;
+      submitStatus = SubmitStatus.success;
+    } on DioException catch (error) {
+      if (_disposed) return;
+      submitStatus = SubmitStatus.error;
+      final message = writeSignUpErrorMessage(error);
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 400 && message.contains('비밀번호')) {
+        passwordErrorText = message;
+      } else {
+        snackbarMessage = message;
+      }
+      // 최종 409: 중복 확인 직후 다른 사용자가 같은 값을 등록한 경우. 이전 '사용 가능' 결과를 무효화
+      if (statusCode == 409) {
+        if (message.contains('이메일')) emailCheckStatus = CheckStatus.idle;
+        if (message.contains('닉네임')) nicknameCheckStatus = CheckStatus.idle;
+      }
+    } on StateError {
+      if (_disposed) return;
+      submitStatus = SubmitStatus.error;
+      snackbarMessage = '가입 결과를 확인하지 못했습니다. 새 요청 전에 서버 상태를 확인해 주세요.';
+    }
+    if (!_disposed) notifyListeners();
   }
 
   bool _disposed = false;
