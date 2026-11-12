@@ -37,3 +37,13 @@ class SignUpService {
     );
   }
 }
+
+/// 회원가입 실패 문구. 400(비밀번호 형식)·409(이메일/닉네임 중복) 모두 서버 message가
+/// 사용자에게 보여줄 수 있는 문장이라 그대로 사용
+String writeSignUpErrorMessage(DioException error) {
+  final data = error.response?.data;
+  final common = data is Map<String, dynamic>
+      ? CommonResponse<Object?>.fromJson(data, (value) => value)
+      : null;
+  return common?.message ?? '회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+}
