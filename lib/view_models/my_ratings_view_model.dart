@@ -20,10 +20,13 @@ class MyRatingsViewModel extends ChangeNotifier {
   final Map<int, TmdbMovieDto?> _movieCache = {};
   int _requestVersion = 0;
   bool _disposed = false;
+  bool _isWriting = false; // 수정/삭제 요청 진행 중
 
   List<RatingWithMovie> ratings = const [];
   MyRatingsLoadStatus status = MyRatingsLoadStatus.idle;
   String? message;
+  // 수정/삭제는 성공했지만 이어진 목록 재조회가 실패한 경우의 안내
+  String? refreshWarning;
 
   Future<void> load() async {
     final version = ++_requestVersion;
@@ -51,6 +54,7 @@ class MyRatingsViewModel extends ChangeNotifier {
       }
       if (_disposed || version != _requestVersion) return;
       ratings = entries;
+      refreshWarning = null; // 조회에 성공했으니 재조회 실패 안내는 해제
       status = entries.isEmpty
           ? MyRatingsLoadStatus.empty
           : MyRatingsLoadStatus.success;
@@ -63,6 +67,59 @@ class MyRatingsViewModel extends ChangeNotifier {
       message = writeMyRatingsErrorMessage(e);
     }
     if (!_disposed && version == _requestVersion) notifyListeners();
+  }
+
+  Future<void> updateRating({
+    required int ratingId,
+    required int score,
+    String? comment,
+  }) =>
+      _write(
+        () => _service.updateRating(
+          memberId: memberId,
+          ratingId: ratingId,
+          score: score,
+          comment: comment,
+        ),
+      );
+
+  // 마지막 항목을 지우면 재조회 결과가 빈 배열 → 기존 empty 상태로 표시됨
+  Future<void> deleteRating(int ratingId) => _write(
+        () => _service.deleteRating(memberId: memberId, ratingId: ratingId),
+      );
+
+  // 수정/삭제 공통 처리 — 실패는 다시 던져 Dialog가 실패로 처리, 성공 후 목록 재조회 실패는 던지지 않음
+  Future<void> _write(Future<void> Function() call) async {
+    if (_isWriting) {
+      // 무시하고 조용히 끝내면 호출한 Dialog가 성공으로 오해하므로 실패로 알림
+      throw StateError('이전 요청을 처리하고 있습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    _isWriting = true;
+    try {
+      await call();
+    } on DioException catch (e) {
+      if (!_disposed) {
+        message = writeErrorMessage(e);
+        notifyListeners();
+        // 권한 없음/이미 삭제됨 → 화면 목록이 서버와 다를 수 있어 다시 조회
+        if (shouldRefreshAfterRatingError(e)) await load();
+      }
+      rethrow;
+    } finally {
+      _isWriting = false;
+    }
+    await _refreshAfterWrite();
+  }
+
+  // 쓰기 성공 후 목록 재조회 — 실패해도 예외 없이 안내 문구만 남김 (쓰기는 재전송하지 않음)
+  Future<void> _refreshAfterWrite() async {
+    if (_disposed) return;
+    await load();
+    if (_disposed) return;
+    refreshWarning = status == MyRatingsLoadStatus.error
+        ? '저장은 완료됐지만 목록을 불러오지 못했습니다. 조회만 다시 시도해 주세요.'
+        : null;
+    notifyListeners();
   }
 
   @override
