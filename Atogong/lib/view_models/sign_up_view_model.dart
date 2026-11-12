@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/services/member_check_service.dart';
+import '../data/services/sign_up_service.dart';
 
 /// idle: 확인 전/입력 변경으로 무효화, checking: 요청 중,
 /// available: 사용 가능, duplicated: 서버가 중복이라 응답, error: 통신 실패
@@ -9,7 +9,7 @@ enum CheckStatus { idle, checking, available, duplicated, error }
 
 class SignUpViewModel extends ChangeNotifier {
   SignUpViewModel(this._service);
-  final MemberCheckService _service;
+  final SignUpService _service;
 
   // ---------- 닉네임 ----------
   CheckStatus nicknameCheckStatus = CheckStatus.idle;

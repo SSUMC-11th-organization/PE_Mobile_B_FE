@@ -2,13 +2,13 @@ import 'package:dio/dio.dart';
 
 import '../models/rating_dto.dart';
 
-/// 유저별 평점 조회 (v5). 빈 배열은 실패가 아니라 Empty
+/// 유저별 평점 조회 (v6, 성공 시 Wrapper 없는 직접 배열). 빈 배열은 실패가 아니라 Empty
 class RatingApiService {
   RatingApiService(this._dio);
   final Dio _dio;
 
   Future<List<RatingDto>> fetchMyRatings(int memberId) async {
-    final response = await _dio.get('/v5/members/$memberId/ratings');
+    final response = await _dio.get('/v6/members/$memberId/ratings');
     final list = response.data as List<dynamic>;
     return list
         .map((item) => RatingDto.fromJson(item as Map<String, dynamic>))
