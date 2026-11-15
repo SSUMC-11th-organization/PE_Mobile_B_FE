@@ -35,14 +35,23 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       );
   }
 
+  /// 등록(myRating == null)과 수정(myRating != null)을 같은 Dialog로 처리합니다.
+  /// 수정 시에는 기존 score·comment를 채워 PATCH 전체 교체로 comment가 지워지지 않게 합니다.
   Future<void> _openRatingDialog() async {
+    final viewModel = context.read<MovieDetailViewModel>();
+    final existing = viewModel.myRating;
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => RatingDialog(
+        initialScore: existing?.score ?? 0,
+        initialComment: existing?.comment,
         onSubmit: (score, comment) async {
-          final viewModel = context.read<MovieDetailViewModel>();
-          await viewModel.createRating(score: score, comment: comment);
+          if (existing == null) {
+            await viewModel.createRating(score: score, comment: comment);
+          } else {
+            await viewModel.updateRating(score: score, comment: comment);
+          }
           if (viewModel.submitStatus != SubmitStatus.success) {
             throw StateError(viewModel.submitMessage ?? '저장에 실패했습니다.');
           }
@@ -52,8 +61,40 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     if (!mounted || saved != true) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('평점을 등록했습니다. 마이페이지의 "내가 등록한 평점"에서 확인할 수 있습니다.'),
+      SnackBar(content: Text(existing == null ? '평점을 등록했습니다.' : '평점을 수정했습니다.')),
+    );
+  }
+
+  Future<void> _confirmDelete() async {
+    final viewModel = context.read<MovieDetailViewModel>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('평점을 삭제할까요?'),
+        content: const Text('삭제한 평점은 복구할 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await viewModel.deleteRating();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          viewModel.submitStatus == SubmitStatus.success
+              ? '평점을 삭제했습니다.'
+              : viewModel.submitMessage ?? '삭제하지 못했습니다.',
+        ),
       ),
     );
   }
@@ -124,6 +165,18 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     )
                   else
                     Text(movie.overview, style: AppTextStyles.bodyMedium),
+                  // 현재 세션에서 등록한 평점 카드 (등록 response의 Rating 객체)
+                  if (viewModel.myRating case final rating?) ...[
+                    const Divider(height: 32),
+                    _MyRatingCard(
+                      score: rating.score,
+                      comment: rating.comment,
+                      busy:
+                          viewModel.submitStatus == SubmitStatus.submitting,
+                      onEdit: _openRatingDialog,
+                      onDelete: _confirmDelete,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -147,19 +200,84 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  // 학습용 회원가입 전(memberId 없음)에는 등록 버튼을 비활성화합니다.
-                  onPressed: viewModel.memberId == null
-                      ? null
-                      : _openRatingDialog,
+                  // v7: memberId 없이 로그인 토큰만으로 등록합니다.
+                  onPressed: viewModel.canWrite &&
+                          viewModel.submitStatus != SubmitStatus.submitting
+                      ? _openRatingDialog
+                      : null,
                   icon: const Icon(Icons.rate_review),
                   label: Text(
-                    viewModel.memberId == null ? '회원가입 후 평점 남기기' : '평점 남기기',
+                    viewModel.myRating == null ? '평점 남기기' : '평점 수정',
                   ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 현재 세션에서 등록한 평점 카드. v7 PATCH/DELETE로 수정·삭제합니다.
+class _MyRatingCard extends StatelessWidget {
+  const _MyRatingCard({
+    required this.score,
+    required this.comment,
+    required this.busy,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final int score;
+  final String? comment;
+  final bool busy;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.violetLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('내 평점', style: AppTextStyles.titleMedium),
+          const SizedBox(height: 8),
+          RatingBarIndicator(
+            rating: score.toDouble(),
+            itemCount: 5,
+            itemSize: 20,
+            itemBuilder: (context, index) =>
+                const Icon(Icons.star, color: AppColors.violet),
+          ),
+          if (comment case final text?) ...[
+            const SizedBox(height: 8),
+            Text(text, style: AppTextStyles.bodyMedium),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: busy ? null : onEdit,
+                child: const Text('수정'),
+              ),
+              TextButton(
+                onPressed: busy ? null : onDelete,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.shade800,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

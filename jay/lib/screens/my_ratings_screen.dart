@@ -13,7 +13,7 @@ import 'package:jay/theme/app_colors.dart';
 import 'package:jay/theme/app_text_styles.dart';
 import 'package:jay/widgets/tmdb_poster_image.dart';
 
-/// 학습용 memberId 1의 평점 목록 화면입니다.
+/// 내가 등록한 평점 화면입니다.
 /// root Navigator 위에 열리므로 하단 NavigationBar가 보이지 않습니다.
 class MyRatingsScreen extends StatelessWidget {
   const MyRatingsScreen({super.key});
@@ -30,7 +30,19 @@ class MyRatingsScreen extends StatelessWidget {
             case MyRatingsLoadStatus.loading:
               return const Center(child: CircularProgressIndicator());
             case MyRatingsLoadStatus.empty:
-              return const Center(child: Text('등록된 평점이 없습니다.'));
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    viewModel.sessionOnly
+                        ? '이번 로그인에서 등록한 평점이 없습니다.\n\n'
+                              '로그인 응답에 회원 ID가 없어, 이전에 남긴 평점 전체는 '
+                              '불러올 수 없어요. (API 한계)'
+                        : '등록된 평점이 없습니다.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
             case MyRatingsLoadStatus.error:
               return MovieListError(
                 // 저장은 성공했지만 재조회만 실패한 경우를 구분해서 안내합니다.

@@ -1,68 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:jay/widgets/movielog_button.dart';
 
 class StartScreen extends StatelessWidget {
-  const StartScreen({super.key});
+  const StartScreen({super.key, this.message, this.onRetry});
 
+  final String? message;
+  final VoidCallback? onRetry;
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsetsGeometry.all(32),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'FLUTTER 1주차',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 32),
-              SvgPicture.asset(
-                'assets/logos/movielog_logo.svg',
-                width: 72,
-                height: 72,
-                semanticsLabel: 'MovieLog 로고',
-              ),
-              const SizedBox(height: 40),
-              const Text(
-                '영화의 순간을\n기록하세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '보고 싶은 영화부터 나만의 평점까지\n한곳에서 관리해요',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.grey, height: 1.5),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    context.go('/register');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              Column(
+                children: [
+                  const SizedBox(height: 32),
+                  const Text('FLUTTER 8주차'),
+                  const SizedBox(height: 64),
+                  SvgPicture.asset(
+                    'assets/logos/movielog_logo.svg',
+                    width: 84,
+                    height: 84,
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    '영화의 순간을\n기록하세요',
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: const Text('시작하기'),
-                ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '보고 싶은 영화부터 나만의 평점까지\n한곳에서 관리해요',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
+              if (onRetry == null)
+                const CircularProgressIndicator()
+              else
+                Column(
+                  children: [
+                    Text(message ?? '로그인 상태를 확인하지 못햇어요.'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: MovieLogButton(label: '다시 시도', onPressed: onRetry),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

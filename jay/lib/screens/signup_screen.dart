@@ -68,11 +68,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     if (viewModel.submitStatus == SubmitStatus.success &&
         viewModel.createdMemberId != null) {
-      // 가입 결과의 memberId를 학습용 세션에 저장 → 평점 요청에서 사용
-      context.read<LearningMemberSession>().setMemberId(
-        viewModel.createdMemberId!,
+      // 가입 결과의 memberId를 기억 → 같은 email로 로그인하면 공개 평점 목록 조회에 사용
+      context.read<LearningMemberSession>().setMember(
+        id: viewModel.createdMemberId!,
+        email: _emailController.text,
       );
-      context.go('/movies');
+      // 8주차: 가입만으로는 토큰이 없으므로 로그인 화면으로 보냅니다.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('회원가입이 완료됐어요. 로그인해 주세요.')),
+      );
+      context.go('/login');
       return;
     }
     if (viewModel.snackbarMessage != null) {
@@ -249,8 +254,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        // 로그인 화면이 아직 없으므로 동작은 연결하지 않습니다.
-                        LoginPrompt(onLogin: () {}),
+                        LoginPrompt(onLogin: () => context.go('/login')),
                       ],
                     ),
                   ),
