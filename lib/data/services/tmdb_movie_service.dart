@@ -45,6 +45,21 @@ class TmdbMovieService {
     return TmdbMoviePageDto.fromJson(json);
   }
 
+  // TMDB에서 요청할 수 있는 page 범위의 끝 (total_pages가 더 커도 501 이상은 요청하지 않음)
+  static const maxPage = 500;
+
+  // 영화 목록 한 page (장르별 Discover) — 더 보기(페이지네이션)용
+  // 기존 discoverMovies를 그대로 사용하고 page 범위만 확인 (홈의 fetchPopular와 무관)
+  Future<TmdbMoviePageDto> fetchMoviePage({
+    required int page,
+    int? genreId,
+  }) async {
+    if (page < 1 || page > maxPage) {
+      throw RangeError.range(page, 1, maxPage, 'page');
+    }
+    return discoverMovies(page: page, genreId: genreId);
+  }
+
   // 영화 장르 목록 (GET /genre/movie/list) — 응답은 { genres: [...] }
   Future<List<TmdbGenreDto>> fetchGenres() async {
     final json = await _getJson('/genre/movie/list');

@@ -26,7 +26,7 @@ import '../view_models/favorite_detail_view_model.dart';
 import '../view_models/favorites_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/learning_member_session.dart';
-import '../view_models/movie_list_view_model.dart';
+import '../view_models/paged_movies_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 import '../view_models/profile_edit_view_model.dart';
 import '../view_models/session_ratings_store.dart';
@@ -88,11 +88,12 @@ class AppRouter {
           ),
           GoRoute(
             path: '/movies',
-            // 목록 탭 진입 시 ViewModel 생성 + 장르/영화 첫 로드 (한 번만)
-            builder: (context, state) => ChangeNotifierProvider(
-              create: (context) =>
-                  MovieListViewModel(context.read<TmdbMovieService>())
-                    ..loadInitial(),
+            // 목록 탭 진입 시 ViewModel 생성 — 첫 page 요청은 화면이 저장된 장르를 읽은 뒤 한 번 시작
+            builder: (context, state) =>
+                ChangeNotifierProvider<PagedMoviesViewModel>(
+              create: (context) => PagedMoviesViewModel(
+                tmdbApi: context.read<TmdbMovieService>(),
+              ),
               child: const MovieListScreen(),
             ),
           ),
