@@ -9,6 +9,7 @@ import 'core/session/auth_session_bridge.dart';
 import 'core/session/session_guard.dart';
 import 'core/storage/token_storage.dart';
 import 'data/services/auth_service.dart';
+import 'data/services/favorite_api_service.dart';
 import 'data/services/member_api_service.dart';
 import 'data/services/rating_api_service.dart';
 import 'data/services/sign_up_service.dart';
@@ -115,7 +116,9 @@ class _MovieLogAppState extends State<MovieLogApp> {
         ChangeNotifierProvider<AuthViewModel>.value(value: _auth),
         // 9주차 세션 판정 — AuthViewModel 상태 변화를 SessionGuard에 전달만 함
         // (인증 상태의 기준은 AuthViewModel, email은 /v8/members/me로 확인된 값만 사용)
+        // lazy: false — 앱 시작 즉시 AuthViewModel 구독을 시작해, 처음 읽히기 전의 세션 변화도 놓치지 않게 함
         Provider<AuthSessionBridge>(
+          lazy: false,
           create: (context) {
             final auth = context.read<AuthViewModel>();
             return AuthSessionBridge(
@@ -130,6 +133,10 @@ class _MovieLogAppState extends State<MovieLogApp> {
         ),
         Provider<SessionGuard>(
           create: (context) => context.read<AuthSessionBridge>().guard,
+        ),
+        // 즐겨찾기 v8 — 보호용 Dio(기존 movieLogAuthClient 인스턴스)를 그대로 사용
+        Provider<FavoriteApiService>(
+          create: (_) => FavoriteApiService(MovieLogApp.movieLogAuthClient),
         ),
         // 닉네임/이메일 중복 확인 + 회원가입 — 공개용 Dio 사용
         Provider<SignUpService>(
