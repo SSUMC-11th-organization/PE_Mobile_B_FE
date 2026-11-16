@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/models/rating_dto.dart';
 import '../data/models/tmdb_movie_dto.dart';
 
-// 이번 로그인 세션 동안 등록 응답(POST /v7/ratings)으로 받은 평점을 메모리에만 보관
+// 이번 로그인 세션 동안 등록 응답(POST /v8/ratings)으로 받은 평점을 메모리에만 보관
 //
 // 한계: v7 로그인·내 정보 응답에는 memberId가 없어 "토큰 기반 내 평점 전체 목록"을 조회할 API가 없음.
 // 그래서 이 목록은 저장하지 않으며, 앱을 다시 시작하면 이전에 남긴 평점은 자동으로 복원되지 않음.

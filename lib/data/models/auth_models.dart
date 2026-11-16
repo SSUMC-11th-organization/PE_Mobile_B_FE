@@ -1,4 +1,4 @@
-// POST /v7/auth/login 요청 본문
+// POST /v8/auth/login 요청 본문
 // toString을 재정의하지 않음 → 실수로 출력해도 비밀번호가 문자열에 드러나지 않음
 class LoginRequest {
   const LoginRequest({required this.email, required this.password});
@@ -13,7 +13,7 @@ class LoginRequest {
       };
 }
 
-// POST /v7/auth/login 성공 응답의 result — { nickname, accessToken }
+// POST /v8/auth/login 성공 응답의 result — { nickname, accessToken }
 // toString을 재정의하지 않음 → 토큰이 문자열로 드러나지 않음
 class LoginResult {
   const LoginResult({required this.nickname, required this.accessToken});

@@ -1,6 +1,6 @@
 // MovieLog 평점(Rating) 한 건
-// - POST /v7/ratings, PATCH /v7/ratings/{ratingId} 성공 응답의 result
-// - GET /v7/members/{memberId}/ratings 목록의 원소
+// - POST /v8/ratings, PATCH /v8/ratings/{ratingId} 성공 응답의 result
+// - GET /v8/members/{memberId}/ratings 목록의 원소
 class RatingDto {
   const RatingDto({
     required this.ratingId,

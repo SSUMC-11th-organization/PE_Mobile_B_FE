@@ -33,7 +33,28 @@ class AuthInterceptor extends Interceptor {
   static const _header = 'Authorization';
   static const _sessionVersionKey = 'movielog.sessionVersion';
 
-  bool _isProtected(RequestOptions options) => options.uri.host == allowedHost;
+  // 보호 요청(JWT를 붙일 요청)인지 판단 — 호스트와 경로(/v8)·메서드를 함께 확인
+  bool _isProtected(RequestOptions options) {
+    // MovieLog 서버가 아닌 곳(TMDB 등)에는 JWT를 붙이지 않음
+    if (options.uri.host != allowedHost) return false;
+    final path = options.uri.path;
+    final method = options.method.toUpperCase();
+
+    // 8주차 보호 경로(/v8로 전환). 로그인·회원가입·중복 확인은 보호 요청이 아님
+    final w8Protected = path == '/v8/members/me' ||
+        path == '/v8/ratings' ||
+        path.startsWith('/v8/ratings/');
+
+    // 즐겨찾기: 등록(POST)·목록(GET) / 여부 조회(GET)·해제(DELETE)
+    final favorites = (path == '/v8/favorites' &&
+            (method == 'GET' || method == 'POST')) ||
+        (RegExp(r'^/v8/favorites/[1-9]\d*$').hasMatch(path) &&
+            (method == 'GET' || method == 'DELETE'));
+    // 영화 기록 저장 (Challenge에서만 사용)
+    final movieRecord = path == '/v8/movie-records' && method == 'POST';
+
+    return w8Protected || favorites || movieRecord;
+  }
 
   @override
   Future<void> onRequest(

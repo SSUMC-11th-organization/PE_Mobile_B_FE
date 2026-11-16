@@ -9,7 +9,7 @@ import 'auth_view_model.dart';
 import 'session_ratings_store.dart';
 import 'sign_up_view_model.dart' show SubmitStatus;
 
-// 영화 상세 화면 상태 — 영화 정보 + 평점 등록(POST /v7/ratings, 보호 API) 요청 상태
+// 영화 상세 화면 상태 — 영화 정보 + 평점 등록(POST /v8/ratings, 보호 API) 요청 상태
 // 등록 성공 응답의 Rating은 이번 세션 평점 목록(SessionRatingsStore)에 담음
 class MovieDetailViewModel extends ChangeNotifier {
   MovieDetailViewModel(this._ratingService, this._store, this._auth, this.movie);

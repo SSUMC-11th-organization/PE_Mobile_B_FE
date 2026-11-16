@@ -8,7 +8,7 @@ import '../view_models/auth_view_model.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/stat_item.dart';
 
-// 마이페이지 탭 — 닉네임/이메일은 AuthViewModel.member(GET /v7/members/me)에서 표시
+// 마이페이지 탭 — 닉네임/이메일은 AuthViewModel.member(GET /v8/members/me)에서 표시
 // 사진·소개·통계·장르는 기존 프로필 디자인(profile_screen.dart)의 정적 요소 그대로
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});

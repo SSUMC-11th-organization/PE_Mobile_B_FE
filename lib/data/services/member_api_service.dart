@@ -12,16 +12,16 @@ class MemberApiService {
 
   final Dio _dio;
 
-  // GET /v7/members/me — CommonResponse<MemberInfo>
+  // GET /v8/members/me — CommonResponse<MemberInfo>
   Future<MemberInfo> fetchMe() async {
-    final r = await _dio.get('/v7/members/me');
+    final r = await _dio.get('/v8/members/me');
     return parseCommonResult(r.data, MemberInfo.fromJson);
   }
 
-  // PATCH /v7/members/me { "nickname": ... } — CommonResponse<MemberInfo>
+  // PATCH /v8/members/me { "nickname": ... } — CommonResponse<MemberInfo>
   Future<MemberInfo> updateNickname(String nickname) async {
     final r = await _dio.patch(
-      '/v7/members/me',
+      '/v8/members/me',
       data: <String, dynamic>{'nickname': nickname},
     );
     return parseCommonResult(r.data, MemberInfo.fromJson);
