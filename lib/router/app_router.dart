@@ -9,6 +9,7 @@ import '../data/services/member_api_service.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/button_width_demo_screen.dart';
+import '../screens/favorites_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_screen.dart';
@@ -22,6 +23,7 @@ import '../screens/start_screen.dart';
 import '../theme/app_text_styles.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/favorite_detail_view_model.dart';
+import '../view_models/favorites_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/learning_member_session.dart';
 import '../view_models/movie_list_view_model.dart';
@@ -128,6 +130,30 @@ class AppRouter {
                   child: const MyRatingsScreen(),
                 ),
               ),
+              // 내 즐겨찾기 — root Navigator에 띄움 → 하단 NavigationBar 없이 표시
+              // 내 정보(email)가 준비되고 SessionGuard의 현재 세션과 일치할 때만 ViewModel 생성
+              // ValueKey(email:generation) → 계정/세션이 바뀌면 이전 목록을 버리고 새로 만듦
+              GoRoute(
+                path: 'favorites',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final member = context.watch<AuthViewModel>().member;
+                  final guard = context.read<SessionGuard>();
+                  if (member == null || guard.accountId != member.email) {
+                    return const _SessionWaitScreen(title: '내 즐겨찾기');
+                  }
+                  return ChangeNotifierProvider<FavoritesViewModel>(
+                    key: ValueKey('${member.email}:${guard.generation}'),
+                    create: (context) => FavoritesViewModel(
+                      favoriteApi: context.read<FavoriteApiService>(),
+                      tmdbApi: context.read<TmdbMovieService>(),
+                      sessionGuard: guard,
+                      accountId: member.email,
+                    ),
+                    child: const FavoritesScreen(),
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -154,7 +180,7 @@ class AppRouter {
           final member = context.watch<AuthViewModel>().member;
           final guard = context.read<SessionGuard>();
           if (member == null || guard.accountId != member.email) {
-            return const _SessionWaitScreen();
+            return const _SessionWaitScreen(title: '영화 상세');
           }
           return ChangeNotifierProvider<FavoriteDetailViewModel>(
             key: ValueKey('${member.email}:${guard.generation}'),
@@ -196,11 +222,13 @@ class AppRouter {
   }
 }
 
-// 상세 진입 시 내 정보(email)가 아직 없을 때의 대기 화면
-// URL로 상세에 바로 들어오면 MainScreen을 거치지 않아 member가 비어 있을 수 있음 → 한 번 조회
+// 상세·내 즐겨찾기 진입 시 내 정보(email)가 아직 없을 때의 대기 화면
+// URL로 바로 들어오면 MainScreen을 거치지 않아 member가 비어 있을 수 있음 → 한 번 조회
 // (이미 있거나 조회 중이면 loadMember는 아무것도 하지 않음)
 class _SessionWaitScreen extends StatefulWidget {
-  const _SessionWaitScreen();
+  const _SessionWaitScreen({required this.title});
+
+  final String title;
 
   @override
   State<_SessionWaitScreen> createState() => _SessionWaitScreenState();
@@ -221,7 +249,7 @@ class _SessionWaitScreenState extends State<_SessionWaitScreen> {
     final failed = auth.memberLoadStatus == MemberLoadStatus.error;
     return Scaffold(
       appBar: CommonAppBar(
-        title: '영화 상세',
+        title: widget.title,
         onBack: () => context.canPop() ? context.pop() : context.go('/home'),
       ),
       body: Center(

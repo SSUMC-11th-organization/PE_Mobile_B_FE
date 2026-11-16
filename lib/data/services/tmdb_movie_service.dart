@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../core/network/tmdb_client.dart';
+import '../../core/utils/map_bounded.dart';
 import '../models/json_parsers.dart';
 import '../models/tmdb_genre_dto.dart';
 import '../models/tmdb_movie_dto.dart';
@@ -57,6 +58,26 @@ class TmdbMovieService {
       queryParameters: {'language': 'ko-KR'},
     );
     return TmdbMovieDto.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // 여러 영화 상세를 한 번에 — 즐겨찾기 목록의 movieId로 제목·포스터를 보충할 때 사용
+  // 기존 fetchMovieDetail을 재사용하고, mapBounded로 동시에 최대 concurrency개만 요청
+  // 영화별 실패는 예외 대신 "Map에 key 없음"으로 돌려줌 → 한 건이 실패해도 나머지는 그대로
+  Future<Map<int, TmdbMovieDto>> fetchMovieDetails(
+    List<int> movieIds, {
+    int concurrency = 5,
+  }) async {
+    final ids = movieIds.toSet().toList(growable: false); // 같은 영화는 한 번만 조회
+    final results = await mapBounded(ids, concurrency, (movieId) async {
+      try {
+        return (movieId, await fetchMovieDetail(movieId));
+      } catch (_) {
+        return (movieId, null);
+      }
+    });
+    return {
+      for (final (movieId, movie) in results) movieId: ?movie, // 실패(null)는 key 없음
+    };
   }
 
   // id로 영화 찾기 — TMDB에 없는 영화(404)면 null, 그 외 실패는 다시 던짐

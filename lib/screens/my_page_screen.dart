@@ -95,6 +95,14 @@ class MyPageScreen extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/my/ratings'),
             ),
+            // 내 즐겨찾기 — 평점 기록 행 아래. 내 정보(email)가 준비된 뒤에만 활성화
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('내 즐겨찾기'),
+              trailing: const Icon(Icons.chevron_right),
+              enabled: member != null,
+              onTap: () => context.push('/my/favorites'),
+            ),
           ],
         ),
       ),
