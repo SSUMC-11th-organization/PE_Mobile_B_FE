@@ -10,9 +10,12 @@ import '../movie_detail/widgets/rating_dialog.dart';
 import 'widgets/rating_card.dart';
 
 /// 마이페이지의 자식 화면. root Navigator 위에 떠서 하단 NavigationBar가 없고, AppBar 뒤로가기로 복귀
-/// 7주차: 회원가입 결과의 학습용 memberId(LearningMemberSession)로 조회하고, 카드별 수정·삭제 제공
+/// 8주차: 이번 로그인 세션에서 등록한 평점을 보여주고, 카드별 수정·삭제를 v7 토큰 기반 API로 요청
 class MyRatingsScreen extends StatelessWidget {
   const MyRatingsScreen({super.key});
+
+  // v7에는 토큰 기반 "내 평점 목록 GET"이 없어서 생기는 한계를 화면에도 안내
+  static const _sessionNotice = '이번 로그인 이후 등록한 평점만 표시됩니다.';
 
   @override
   Widget build(BuildContext context) {
@@ -26,45 +29,19 @@ class MyRatingsScreen extends StatelessWidget {
               case MyRatingsLoadStatus.loading:
                 return const Center(child: CircularProgressIndicator());
               case MyRatingsLoadStatus.empty:
-                return const Center(child: Text('아직 등록한 평점이 없습니다.'));
-              case MyRatingsLoadStatus.error:
-                // 쓰기 성공 뒤 재조회만 실패한 경우엔 그 안내를 우선 표시. 다시 시도는 GET만 재요청
-                return _ErrorView(
-                  message:
-                      viewModel.refreshWarning ??
-                      viewModel.message ??
-                      '평점을 불러오지 못했습니다.',
-                  onRetry: viewModel.load,
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      '아직 등록한 평점이 없습니다.\n$_sessionNotice',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 );
               case MyRatingsLoadStatus.success:
                 return _SuccessView(viewModel: viewModel);
             }
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            // 고정 너비(160): 화면 크기와 무관하게 같은 크기
-            MovieLogButton(label: '다시 시도', width: 160, onPressed: onRetry),
-          ],
         ),
       ),
     );
@@ -83,7 +60,14 @@ class _SuccessView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 일부 영화 정보 조회 실패 안내 (평점 목록은 그대로)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            MyRatingsScreen._sessionNotice,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        // 일부 영화 정보 조회 실패·직전 쓰기 실패 안내 (평점 목록은 그대로)
         if (message != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -117,13 +101,14 @@ Future<void> onEditPressed(BuildContext context, RatingDto rating) async {
             comment: comment,
           );
         } on DioException catch (error) {
-          // 쓰기 실패만 Dialog로 넘김. 서버 message(400/403/404)를 Dialog가 그대로 표시
+          // 쓰기 실패만 Dialog로 넘김. 서버 message(400/403/404)를 Dialog가 그대로 표시.
+          // 401(세션 만료)은 ViewModel이 세션을 정리해 Router가 로그인 화면으로 보냄
           throw StateError(writeErrorMessage(error));
         }
       },
     ),
   );
-  // 성공 시 목록 재조회는 ViewModel이 이미 끝냈고, 취소·실패는 별도 처리 없음
+  // 성공 시 목록 갱신은 ViewModel이 이미 끝냈고, 취소·실패는 별도 처리 없음
 }
 
 /// 삭제: 되돌릴 수 없으므로 확인 Dialog를 거침. 취소하면 삭제 API를 호출하지 않음

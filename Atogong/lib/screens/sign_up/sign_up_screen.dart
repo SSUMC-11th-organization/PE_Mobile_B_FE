@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/create_member_request.dart';
-import '../../view_models/learning_member_session.dart';
 import '../../view_models/sign_up_view_model.dart';
 import '../../view_models/submit_status.dart';
 import '../../widgets/movielog_button.dart';
@@ -86,8 +85,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final createdMemberId = viewModel.createdMemberId;
     if (viewModel.submitStatus == SubmitStatus.success &&
         createdMemberId != null) {
-      // 가입 결과의 memberId를 학습용 세션에 보관 → 이후 평점 요청 path에 사용
-      context.read<LearningMemberSession>().setMemberId(createdMemberId);
       final nickname = _nicknameController.text.trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$nickname님, 가입을 환영합니다! 로그인해 주세요.')),

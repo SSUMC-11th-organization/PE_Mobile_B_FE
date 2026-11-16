@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:movielog/data/services/rating_api_service.dart';
 import 'package:movielog/data/services/sign_up_service.dart';
 import 'package:movielog/view_models/auth_view_model.dart';
-import 'package:movielog/view_models/learning_member_session.dart';
+import 'package:movielog/view_models/session_ratings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,23 +34,19 @@ class MovieLogApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<TokenStorage>.value(value: tokenStorage),
-        // 회원가입 결과의 memberId를 영화 상세·마이페이지가 같이 읽도록 앱 최상단에 둠
-        ChangeNotifierProvider<LearningMemberSession>(
-          create: (_) => LearningMemberSession(),
-        ),
         // 상태 없는 Service는 앱 전체에서 하나를 공유. 화면별 ViewModel은 라우터에서 생성.
         // TMDB Client에는 AuthInterceptor를 붙이지 않음 (TMDB 요청에 MovieLog JWT가 실리면 안 됨)
         Provider<TmdbMovieService>(
           create: (_) => TmdbMovieService(createTmdbClient()),
         ),
-        // 공개 Client: 로그인, 회원가입·중복 체크, 평점
+        // 공개 Client: 로그인, 회원가입·중복 체크
         Provider<AuthApiService>(create: (_) => AuthApiService(publicClient)),
         Provider<SignUpService>(create: (_) => SignUpService(publicClient)),
-        Provider<RatingApiService>(
-          create: (_) => RatingApiService(publicClient),
-        ),
-        // 보호 Client: 내 정보
+        // 보호 Client: 내 정보. RatingApiService는 공개 조회용 publicClient도 함께 받음
         Provider<MemberApiService>(create: (_) => MemberApiService(authClient)),
+        Provider<RatingApiService>(
+          create: (_) => RatingApiService(publicClient, authClient),
+        ),
         // Service가 모두 등록된 뒤 생성자로 주입받는 인증 ViewModel
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
@@ -58,6 +54,10 @@ class MovieLogApp extends StatelessWidget {
             context.read<MemberApiService>(),
             context.read<TokenStorage>(),
           ),
+        ),
+        // 이번 로그인 세션에서 등록한 평점. 영화 상세(등록)와 마이페이지(수정·삭제)가 같이 읽고, 세션이 바뀌면 비워짐
+        ChangeNotifierProvider<SessionRatings>(
+          create: (context) => SessionRatings(context.read<AuthViewModel>()),
         ),
       ],
       child: const _MovieLogRouterApp(),

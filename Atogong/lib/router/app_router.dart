@@ -19,10 +19,10 @@ import '../screens/sign_up/sign_up_screen.dart';
 import '../screens/start/start_screen.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/edit_profile_view_model.dart';
-import '../view_models/learning_member_session.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
+import '../view_models/session_ratings.dart';
 import '../view_models/sign_up_view_model.dart';
 import '../widgets/movielog_button.dart';
 
@@ -152,22 +152,13 @@ class AppRouter {
                   // root Navigator 위에 띄워 ShellRoute의 하단 NavigationBar를 가림
                   parentNavigatorKey: _rootNavigatorKey,
                   builder: (context, state) {
-                    // 6주차 고정 ID 1 대신 회원가입 결과로 받은 학습용 memberId 사용
-                    final id = context.read<LearningMemberSession>().memberId;
-                    if (id == null) {
-                      return Scaffold(
-                        appBar: AppBar(
-                          centerTitle: true,
-                          title: const Text('내가 등록한 평점'),
-                        ),
-                        body: const Center(child: Text('학습용 회원가입이 필요합니다.')),
-                      );
-                    }
+                    // 8주차: 학습용 memberId 대신 토큰 기반 Service와 이번 세션의 평점 목록을 사용
                     return ChangeNotifierProvider<MyRatingsViewModel>(
                       create: (context) => MyRatingsViewModel(
                         context.read<RatingApiService>(),
                         context.read<TmdbMovieService>(),
-                        id,
+                        context.read<AuthViewModel>(),
+                        context.read<SessionRatings>(),
                       )..load(),
                       child: const MyRatingsScreen(),
                     );

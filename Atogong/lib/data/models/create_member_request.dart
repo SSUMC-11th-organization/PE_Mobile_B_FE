@@ -1,4 +1,4 @@
-/// POST /v6/members 요청 body. Dart 객체 → JSON 방향이라 toJson만 가짐
+/// POST /v7/members 요청 body. Dart 객체 → JSON 방향이라 toJson만 가짐
 class CreateMemberRequest {
   const CreateMemberRequest({
     required this.email,
