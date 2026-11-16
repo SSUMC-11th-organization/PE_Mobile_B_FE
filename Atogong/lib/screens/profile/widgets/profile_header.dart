@@ -5,8 +5,10 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 
 class ProfileHeader extends StatelessWidget {
-  const ProfileHeader({super.key, this.imagePath});
+  const ProfileHeader({super.key, this.imagePath, this.nickname, this.email});
   final String? imagePath;
+  final String? nickname; // 8주차: GET /v7/members/me로 받은 값. 아직 못 받았으면 null
+  final String? email;
 
   @override
   Widget build(BuildContext context) {
@@ -54,11 +56,18 @@ class ProfileHeader extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '무비러버',
+              nickname ?? '불러오는 중…',
               style: AppTextStyles.titleLarge.copyWith(fontSize: 28),
             ),
           ],
         ),
+        if (email != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            email!,
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.gray),
+          ),
+        ],
         const SizedBox(height: 8),
 
         // 소개

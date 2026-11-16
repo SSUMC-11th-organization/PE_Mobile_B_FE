@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/member_api_service.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/sign_up_service.dart';
 import '../data/services/tmdb_movie_service.dart';
+import '../screens/edit_profile/edit_profile_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/login/login_screen.dart';
 import '../screens/main/main_screen.dart';
@@ -16,11 +18,13 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/sign_up/sign_up_screen.dart';
 import '../screens/start/start_screen.dart';
 import '../view_models/auth_view_model.dart';
+import '../view_models/edit_profile_view_model.dart';
 import '../view_models/learning_member_session.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 import '../view_models/sign_up_view_model.dart';
+import '../widgets/movielog_button.dart';
 
 /// 인증 상태와 현재 위치만 보고 "어디로 보낼지"를 정하는 규칙. 이동이 필요 없으면 null.
 /// 상태만 읽고 판단하며, API 호출 같은 비동기 작업은 하지 않음
@@ -111,6 +115,38 @@ class AppRouter {
               path: '/my',
               builder: (context, state) => const ProfileScreen(),
               routes: [
+                GoRoute(
+                  path: 'profile/edit', // 최종 경로 /my/profile/edit
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (context, state) {
+                    final auth = context.watch<AuthViewModel>();
+                    // 주소로 바로 들어와 내 정보가 아직 없으면 로딩 또는 재시도만 표시
+                    if (auth.member == null) {
+                      return Scaffold(
+                        appBar: AppBar(
+                          centerTitle: true,
+                          title: const Text('프로필 수정'),
+                        ),
+                        body: Center(
+                          child: auth.memberStatus == MemberLoadStatus.error
+                              ? MovieLogButton(
+                                  label: '다시 시도',
+                                  onPressed: () => auth.loadMember(force: true),
+                                )
+                              : const CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    // 이 화면에서만 쓰는 ViewModel이라 Route 안에서 생성
+                    return ChangeNotifierProvider<EditProfileViewModel>(
+                      create: (context) => EditProfileViewModel(
+                        context.read<MemberApiService>(),
+                        auth,
+                      ),
+                      child: const EditProfileScreen(),
+                    );
+                  },
+                ),
                 GoRoute(
                   path: 'ratings', // 최종 경로 /my/ratings
                   // root Navigator 위에 띄워 ShellRoute의 하단 NavigationBar를 가림
