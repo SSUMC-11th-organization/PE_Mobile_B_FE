@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginLink extends StatelessWidget {
   const LoginLink({super.key});
@@ -12,7 +13,7 @@ class LoginLink extends StatelessWidget {
       children: [
         const Text('이미 계정이 있나요?'),
         TextButton(
-          onPressed: () {},
+          onPressed: () => context.go('/login'),
           child: Text(
             '로그인',
             style: TextStyle(
