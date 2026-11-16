@@ -41,6 +41,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (success) {
       messenger.showSnackBar(const SnackBar(content: Text('프로필을 수정했어요.')));
+      // member 교체 알림으로 Router(refreshListenable)가 현재 위치를 다시 계산하는 중이라,
+      // 바로 pop하면 그 결과가 뒤늦게 적용돼 이 화면으로 되돌아옴 → 한 프레임 기다린 뒤 pop
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
       router.pop(); // AuthViewModel.member가 이미 교체돼 있어 마이페이지에 바로 반영
     } else if (viewModel.message != null) {
       messenger.showSnackBar(SnackBar(content: Text(viewModel.message!)));
