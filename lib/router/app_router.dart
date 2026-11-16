@@ -15,6 +15,7 @@ import '../screens/login_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
+import '../screens/movie_search_screen.dart';
 import '../screens/my_page_screen.dart';
 import '../screens/my_ratings_screen.dart';
 import '../screens/profile_edit_screen.dart';
@@ -158,6 +159,18 @@ class AppRouter {
             ],
           ),
         ],
+      ),
+      // 영화 검색 — ShellRoute 밖(하단 NavigationBar 없음), 영화 목록과 별도의 PagedMoviesViewModel
+      // 정적 경로 'search'를 동적 경로 ':movieId'보다 먼저 등록 → 'search'가 영화 ID로 해석되지 않음
+      GoRoute(
+        path: '/movies/search',
+        builder: (context, state) =>
+            ChangeNotifierProvider<PagedMoviesViewModel>(
+          create: (context) => PagedMoviesViewModel(
+            tmdbApi: context.read<TmdbMovieService>(),
+          ),
+          child: const MovieSearchScreen(),
+        ),
       ),
       // 상세 화면은 ShellRoute 밖 → 하단 NavigationBar 없이 전체 화면으로 표시
       GoRoute(

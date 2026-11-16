@@ -7,7 +7,7 @@ import '../data/services/tmdb_movie_service.dart';
 import 'load_phase.dart';
 
 // 영화 목록(장르별 Discover) 한 page씩 — "더 보기"로 다음 page를 아래에 추가
-// 검색 화면도 같은 클래스를 별도 인스턴스로 사용할 예정 (조건 record의 query)
+// 검색 화면도 같은 클래스를 별도 인스턴스로 사용 (조건 record의 query가 있으면 검색)
 // - 처음 로딩(phase)과 다음 page 로딩(isLoadingMore)을 구분
 // - 조건이 바뀌면 _requestGeneration을 올려, 늦게 온 응답·오류·finally는 요청 시점 값이 같을 때만 반영
 // - TMDB 공개 API만 호출 (MovieLog JWT·세션과 무관) → 어떤 오류에서도 로그아웃·세션 정리를 하지 않음
@@ -96,9 +96,10 @@ class PagedMoviesViewModel extends ChangeNotifier with SafeNotify {
     int page,
     ({int? genreId, String query}) condition,
   ) async {
-    // 검색(query)은 다음 단계에서 연결 — 지금은 장르별 Discover만
-    final result =
-        await tmdbApi.fetchMoviePage(page: page, genreId: condition.genreId);
+    // 검색어가 있으면 Search, 없으면 장르별 Discover
+    final result = condition.query.isNotEmpty
+        ? await tmdbApi.searchMovies(query: condition.query, page: page)
+        : await tmdbApi.fetchMoviePage(page: page, genreId: condition.genreId);
     if (result.page != page || result.totalPages < 0) {
       throw const FormatException('TMDB page metadata is inconsistent.');
     }

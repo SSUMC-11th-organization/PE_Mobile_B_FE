@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_genre_dto.dart';
@@ -6,6 +7,7 @@ import '../data/services/tmdb_movie_service.dart';
 import '../services/genre_preference.dart';
 import '../view_models/load_phase.dart';
 import '../view_models/paged_movies_view_model.dart';
+import '../widgets/common_app_bar.dart';
 import '../widgets/movie_card.dart';
 import '../widgets/movie_list_empty.dart';
 import '../widgets/movie_list_error.dart';
@@ -68,6 +70,17 @@ class _MovieListScreenState extends State<MovieListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: CommonAppBar(
+        title: '영화',
+        actions: [
+          // 검색 화면은 탭 위에 push (뒤로가기로 목록 상태 그대로 복귀)
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: '영화 검색',
+            onPressed: () => context.push('/movies/search'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Consumer<PagedMoviesViewModel>(
           builder: (context, vm, _) {

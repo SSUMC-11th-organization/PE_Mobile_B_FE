@@ -60,6 +60,22 @@ class TmdbMovieService {
     return discoverMovies(page: page, genreId: genreId);
   }
 
+  // 영화 검색 한 page (GET /search/movie) — 검색어가 비어 있으면 호출하지 않음 (ViewModel에서 먼저 막음)
+  Future<TmdbMoviePageDto> searchMovies({
+    required String query,
+    required int page,
+  }) async {
+    if (page < 1 || page > maxPage) {
+      throw RangeError.range(page, 1, maxPage, 'page');
+    }
+    final json = await _getJson('/search/movie', {
+      'query': query,
+      'page': page,
+      'include_adult': false,
+    });
+    return TmdbMoviePageDto.fromJson(json);
+  }
+
   // 영화 장르 목록 (GET /genre/movie/list) — 응답은 { genres: [...] }
   Future<List<TmdbGenreDto>> fetchGenres() async {
     final json = await _getJson('/genre/movie/list');
