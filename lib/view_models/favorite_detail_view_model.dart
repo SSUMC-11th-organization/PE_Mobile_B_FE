@@ -107,7 +107,12 @@ class FavoriteDetailViewModel extends ChangeNotifier with SafeNotify {
       // 이미 등록(409)·이미 해제(404)면 POST/DELETE를 반복하지 않고 서버의 현재 여부로 맞춤
       final code = apiErrorCode(error);
       if (code == 'FAVORITE409_1' || code == 'FAVORITE404_1') {
-        return _syncFromServer(snap.generation, before);
+        // 409 = 이미 등록 → 채워진 북마크, 404 = 이미 해제 → 빈 북마크 (GET 확인이 실패해도 이 값으로 맞춤)
+        return _syncFromServer(
+          snap.generation,
+          before,
+          expected: code == 'FAVORITE409_1',
+        );
       }
       isFavorite = before; // 실패하면 이전 아이콘 유지
       errorMessage = failMessage;
@@ -125,19 +130,25 @@ class FavoriteDetailViewModel extends ChangeNotifier with SafeNotify {
     }
   }
 
-  Future<String?> _syncFromServer(int generation, bool before) async {
+  // 409/404 뒤 서버의 현재 여부로 맞춤 — GET이 실패하면 오류 code가 알려 준 상태(expected)로 맞춤
+  Future<String?> _syncFromServer(
+    int generation,
+    bool before, {
+    required bool expected,
+  }) async {
     try {
       final synced = await favoriteApi.checkFavorite(movieId: movieId);
       if (_isStale(generation)) return null;
       isFavorite = synced.isFavorite;
-      errorMessage = null;
-      return isFavorite ? '이미 즐겨찾기에 있는 영화입니다.' : '이미 즐겨찾기에서 삭제된 영화입니다.';
     } catch (error) {
       if (_isStale(generation)) return null;
-      isFavorite = before;
-      if (_isSessionExpired(error)) return null;
-      errorMessage = '서버 상태를 다시 확인하지 못했습니다.';
-      return errorMessage;
+      if (_isSessionExpired(error)) {
+        isFavorite = before;
+        return null;
+      }
+      isFavorite = expected;
     }
+    errorMessage = null;
+    return isFavorite ? '이미 즐겨찾기에 있는 영화입니다.' : '이미 즐겨찾기에서 삭제된 영화입니다.';
   }
 }
