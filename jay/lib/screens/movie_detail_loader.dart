@@ -3,8 +3,9 @@ import 'package:jay/data/models/tmdb_movie_dto.dart';
 import 'package:jay/data/services/rating_api_service.dart';
 import 'package:jay/data/services/tmdb_movie_service.dart';
 import 'package:jay/screens/movie_detail_screen.dart';
-import 'package:jay/view_models/learning_member_session.dart';
+import 'package:jay/view_models/auth_view_model.dart';
 import 'package:jay/view_models/movie_detail_view_model.dart';
+import 'package:jay/view_models/session_rating_store.dart';
 import 'package:provider/provider.dart';
 
 class MovieDetailLoader extends StatefulWidget {
@@ -48,7 +49,8 @@ class _MovieDetailLoaderState extends State<MovieDetailLoader> {
         return ChangeNotifierProvider<MovieDetailViewModel>(
           create: (context) => MovieDetailViewModel(
             context.read<RatingApiService>(),
-            context.read<LearningMemberSession>().memberId,
+            context.read<AuthViewModel>(),
+            context.read<SessionRatingStore>(),
             snapshot.data!,
           ),
           child: const MovieDetailScreen(),

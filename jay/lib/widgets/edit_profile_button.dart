@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class EditProfileButton extends StatelessWidget {
-  const EditProfileButton({super.key});
+  const EditProfileButton({super.key, required this.onPressed});
+
+  /// member가 없을 때는 null을 넘겨 버튼을 비활성화합니다.
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
-      onPressed: () {},
+      onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.violet,
