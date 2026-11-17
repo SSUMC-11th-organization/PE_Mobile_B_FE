@@ -57,7 +57,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
-    final hasMember = context.read<MovieDetailViewModel>().memberId != null;
 
     if (movie == null) {
       return Scaffold(
@@ -123,17 +122,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 Text(movie.overview, style: AppTextStyles.bodyMedium),
               ],
               const SizedBox(height: 24),
-              if (!hasMember) ...[
-                const Text(
-                  '평점을 남기려면 먼저 학습용 회원가입을 완료해 주세요.',
-                  style: AppTextStyles.bodySmall,
-                ),
-                const SizedBox(height: 8),
-              ],
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: hasMember ? _openRatingDialog : null,
+                  onPressed: _openRatingDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.violet,
                     foregroundColor: AppColors.white,
