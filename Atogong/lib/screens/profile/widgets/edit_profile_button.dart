@@ -4,13 +4,16 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 
 class EditProfileButton extends StatelessWidget {
-  const EditProfileButton({super.key});
+  const EditProfileButton({super.key, this.onPressed});
+
+  /// null이면 비활성. 내 정보(member)를 받은 뒤에만 켜짐
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: TextButton(
-        onPressed: () {}, // 1주차: 모양만, 동작 없음
+        onPressed: onPressed,
         style: TextButton.styleFrom(
           foregroundColor: AppColors.violet,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),

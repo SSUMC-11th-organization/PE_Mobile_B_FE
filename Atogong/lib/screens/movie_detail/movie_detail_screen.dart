@@ -7,7 +7,7 @@ import '../../view_models/submit_status.dart';
 import '../../widgets/tmdb_poster_image.dart';
 import 'widgets/rating_dialog.dart';
 
-/// 영화 정보와 memberId는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음.
+/// 영화 정보는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음. (8주차: memberId 대신 토큰으로 등록)
 /// 이 화면은 평점 "등록"만 하고, 조회·수정·삭제는 마이페이지의 내가 등록한 평점 화면에서 진행
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({super.key});
@@ -39,7 +39,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           final viewModel = context.read<MovieDetailViewModel>();
           await viewModel.createRating(score: score, comment: comment);
           if (viewModel.submitStatus != SubmitStatus.success) {
-            // 실패는 Dialog가 받아 서버 message(400/404/409)를 보여주고 입력을 유지
+            // 실패는 Dialog가 받아 서버 message(400/409 등)를 보여주고 입력을 유지.
+            // 401(세션 만료)이면 ViewModel이 세션을 정리해 Router가 로그인 화면으로 보냄
             throw StateError(viewModel.submitMessage ?? '저장에 실패했습니다.');
           }
         },
@@ -60,8 +61,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<MovieDetailViewModel>();
     final movie = viewModel.movie;
-    final canRate =
-        viewModel.memberId != null; // 회원가입 전에는 평점 path에 쓸 memberId가 없음
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -123,14 +122,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!canRate)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '평점을 남기려면 먼저 회원가입을 완료해 주세요.',
-                    style: textTheme.bodySmall,
-                  ),
-                ),
               Row(
                 children: [
                   Expanded(
@@ -145,7 +136,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: canRate ? _openRatingDialog : null,
+                      // 이 화면은 로그인 상태에서만 열림 (로그아웃 상태면 Router가 /login으로 보냄)
+                      onPressed: _openRatingDialog,
                       icon: const Icon(Icons.rate_review_outlined),
                       label: const Text('평점 남기기'),
                     ),

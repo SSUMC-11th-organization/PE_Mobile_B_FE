@@ -52,7 +52,7 @@ class RatingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    movie?.title ?? '영화 정보 없음 (movieId ${rating.movieId})',
+                    movie?.title ?? '영화 #${rating.movieId}',
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

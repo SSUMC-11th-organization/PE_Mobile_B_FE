@@ -1,4 +1,4 @@
-/// v6 평점 score는 1~5 정수. 위젯이 정수 단위로 막아 준 뒤에도 남겨 두는 안전장치
+/// 서버 평점 score는 1~5 정수. 위젯이 정수 단위로 막아 준 뒤에도 남겨 두는 안전장치
 int validateServerScore(double value) {
   if (value < 1 || value > 5 || value != value.roundToDouble()) {
     throw ArgumentError('서버 평점은 1~5 사이 정수여야 합니다.');
@@ -6,7 +6,7 @@ int validateServerScore(double value) {
   return value.toInt();
 }
 
-/// POST /v6/members/{memberId}/ratings 요청 body.
+/// POST /v7/ratings 요청 body. memberId는 넣지 않음 (서버가 토큰으로 판단).
 /// movieId는 영화 배열 index가 아니라 TmdbMovieDto.id
 class CreateRatingRequest {
   const CreateRatingRequest({
