@@ -1,24 +1,27 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movielog/core/storage/token_storage.dart';
 import 'package:movielog/data/models/common_response.dart';
 import 'package:movielog/data/models/create_member_request.dart';
 import 'package:movielog/data/models/sign_up_models.dart';
-import 'package:movielog/data/models/tmdb_genre_dto.dart';
-import 'package:movielog/data/models/tmdb_movie_dto.dart';
-import 'package:movielog/data/models/tmdb_movie_page_dto.dart';
-import 'package:movielog/data/services/rating_api_service.dart';
 import 'package:movielog/data/services/sign_up_service.dart';
-import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/main.dart';
+import 'package:movielog/screens/login_screen.dart';
 import 'package:movielog/screens/movie_detail_screen.dart';
 import 'package:movielog/screens/sign_up_screen.dart';
 import 'package:movielog/theme/app_theme.dart';
+import 'package:movielog/view_models/auth_view_model.dart';
 import 'package:movielog/view_models/movie_detail_view_model.dart';
+import 'package:movielog/view_models/my_ratings_view_model.dart';
+import 'package:movielog/widgets/main_screen.dart';
 import 'package:movielog/widgets/movielog_button.dart';
 import 'package:movielog/widgets/rating_dialog.dart';
 import 'package:provider/provider.dart';
+
+import 'support/fakes.dart';
 
 class _FakeSignUpService implements SignUpService {
   @override
@@ -37,16 +40,18 @@ class _FakeSignUpService implements SignUpService {
       );
 }
 
-class _FakeTmdb implements TmdbMovieService {
-  @override
-  Future<TmdbMoviePageDto> discoverMovies({required int page, int? genreId}) async =>
-      const TmdbMoviePageDto(page: 1, results: [], totalPages: 1, totalResults: 0);
+/// 읽기가 끝나지 않는 저장소: 세션 확인 중(initializing) 화면을 검증합니다.
+class _HangingTokenStorage implements TokenStorage {
+  final _never = Completer<String?>();
 
   @override
-  Future<List<TmdbGenreDto>> fetchGenres() async => const [];
+  Future<String?> readAccessToken() => _never.future;
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Future<void> saveAccessToken(String token) async {}
+
+  @override
+  Future<void> deleteAccessToken() async {}
 }
 
 void main() {
@@ -54,19 +59,37 @@ void main() {
     await dotenv.load(fileName: '.env');
   });
 
-  testWidgets('start -> register -> /movies (v6 sign up stores memberId)', (
-    tester,
-  ) async {
+  testWidgets('세션 확인 중에는 스플래시만 보이고 로그인 화면이 번쩍이지 않는다', (tester) async {
     await tester.pumpWidget(
       MovieLogApp(
+        tokenStorage: _HangingTokenStorage(),
+        tmdbMovieService: FakeTmdb(),
+        authApiService: FakeAuthApi(),
+        memberApiService: FakeMemberApi(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('영화의 순간을\n기록하세요'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
+  });
+
+  testWidgets('토큰이 없으면 스플래시 → 로그인, 가입 성공 → 자동 로그인 → 홈', (tester) async {
+    await tester.pumpWidget(
+      MovieLogApp(
+        tokenStorage: FakeTokenStorage(),
         signUpService: _FakeSignUpService(),
-        tmdbMovieService: _FakeTmdb(),
+        tmdbMovieService: FakeTmdb(),
+        authApiService: FakeAuthApi(),
+        memberApiService: FakeMemberApi(),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('영화의 순간을\n기록하세요'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsOneWidget);
 
-    await tester.tap(find.text('시작하기'));
+    await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
     expect(find.byType(SignUpScreen), findsOneWidget);
 
@@ -87,39 +110,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SignUpScreen), findsNothing);
+    expect(find.byType(MainScreen), findsOneWidget); // Router가 /home으로 이동
   });
 
-  test('validatePasswordFormat / CreateRatingRequest', () {
-    expect(validatePasswordFormat('Password1!'), isNull);
-    expect(validatePasswordFormat('password1!'), isNotNull); // 대문자 없음
-    expect(validatePasswordFormat('Pass1!'), isNotNull); // 8자 미만
+  testWidgets('저장된 토큰이 GET me로 검증되면 바로 홈으로 간다', (tester) async {
+    await tester.pumpWidget(
+      MovieLogApp(
+        tokenStorage: FakeTokenStorage('saved-token'),
+        tmdbMovieService: FakeTmdb(),
+        authApiService: FakeAuthApi(),
+        memberApiService: FakeMemberApi(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(MainScreen), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
   });
 
   testWidgets('movie detail opens rating dialog with comment field', (
     tester,
   ) async {
-    const movie = TmdbMovieDto(
-      id: 42,
-      title: '테스트 영화',
-      overview: '줄거리입니다.',
-      posterPath: null,
-      backdropPath: null,
-      releaseDate: '2024-05-01',
-      genreIds: [18],
-      voteAverage: 8.4,
-      popularity: 120.5,
-    );
+    final movie = fakeMovie();
+    final auth = AuthViewModel(FakeAuthApi(), FakeMemberApi(), FakeTokenStorage());
+    final ratingApi = FakeRatingApi();
+    final myRatings = MyRatingsViewModel(ratingApi, FakeTmdb(), auth);
 
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: ChangeNotifierProvider(
-          create: (_) => MovieDetailViewModel(
-            RatingApiService(Dio()),
-            7,
-            movie,
-          ),
-          child: const MovieDetailScreen(movieId: 42, movie: movie),
+          create: (_) => MovieDetailViewModel(ratingApi, auth, myRatings, movie),
+          child: MovieDetailScreen(movieId: 42, movie: movie),
         ),
       ),
     );

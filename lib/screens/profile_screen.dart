@@ -3,129 +3,109 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../data/models/rating_dto.dart';
-import '../data/services/rating_api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../view_models/auth_view_model.dart';
+import '../view_models/my_ratings_view_model.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/stat_item.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  List<RatingDto>? _ratings;
-  static const int _testMemberId = 1;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRatings();
-    });
-  }
-
-  Future<void> _loadRatings() async {
-    try {
-      final service = context.read<RatingApiService>();
-      final list = await service.fetchMyRatings(_testMemberId);
-      if (mounted) {
-        setState(() {
-          _ratings = list;
-        });
-      }
-    } catch (_) {
-      // 오류 발생 시 기존 상태 유지
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final ratingCount = _ratings != null ? _ratings!.length.toString() : '3';
+    // read가 아니라 select로 구독해야 닉네임·개수가 바뀔 때 다시 그려집니다.
+    final nickname =
+        context.select<AuthViewModel, String?>((a) => a.member?.nickname);
+    // 이번 로그인 세션에서 등록한 평점 개수 (v7에는 내 평점 전체 조회 API가 없음)
+    final ratingCount = context
+        .select<MyRatingsViewModel, int>((m) => m.ratings.length)
+        .toString();
 
     return Scaffold(
-      appBar: const CommonAppBar(title: '마이페이지', centerTitle: true),
+      appBar: CommonAppBar(
+        title: '마이페이지',
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: '로그아웃',
+            icon: const Icon(Icons.logout, color: AppColors.violet),
+            // 이동은 호출하지 않습니다. signedOut이 되면 Router가 /login으로 보냅니다.
+            onPressed: () => context.read<AuthViewModel>().logout(),
+          ),
+        ],
+      ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadRatings,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const ProfileHeader(),
-                const SizedBox(height: 28),
-                ProfileStats(ratingCount: ratingCount),
-                const SizedBox(height: 28),
-                const FavoriteGenres(),
-                const SizedBox(height: 28),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ProfileHeader(nickname: nickname ?? '불러오는 중…'),
+              const SizedBox(height: 28),
+              ProfileStats(ratingCount: ratingCount),
+              const SizedBox(height: 28),
+              const FavoriteGenres(),
+              const SizedBox(height: 28),
 
-                // 6주차 마이페이지 진입 항목: 내가 등록한 평점
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.lightGray),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+              // 6주차 마이페이지 진입 항목: 내가 등록한 평점
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.lightGray),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightViolet,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.star_rounded,
+                          color: AppColors.violet,
+                          size: 22,
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.lightViolet,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.star_rounded,
-                            color: AppColors.violet,
-                            size: 22,
-                          ),
+                      title: const Text(
+                        '내가 등록한 평점',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.black,
                         ),
-                        title: const Text(
-                          '내가 등록한 평점',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.black,
-                          ),
-                        ),
-                        subtitle: const Text(
-                          '내가 남긴 별점과 감상평 확인하기',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.gray,
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right,
+                      ),
+                      subtitle: const Text(
+                        '이번 로그인에서 남긴 별점과 감상평 확인하기',
+                        style: TextStyle(
+                          fontSize: 12,
                           color: AppColors.gray,
                         ),
-                        onTap: () async {
-                          await context.push('/my/ratings');
-                          _loadRatings();
-                        },
                       ),
-                    ],
-                  ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.gray,
+                      ),
+                      onTap: () => context.push('/my/ratings'),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 32),
-                const EditProfileButton(),
-              ],
-            ),
+              const SizedBox(height: 32),
+              const EditProfileButton(),
+            ],
           ),
         ),
       ),
@@ -134,7 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class ProfileHeader extends StatelessWidget {
-  const ProfileHeader({super.key});
+  const ProfileHeader({super.key, required this.nickname});
+
+  final String nickname;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +127,7 @@ class ProfileHeader extends StatelessWidget {
           backgroundImage: AssetImage('assets/images/profile.png'),
         ),
         const SizedBox(height: 12),
-        Text('무비러버', style: AppTextStyles.titleLarge),
+        Text(nickname, style: AppTextStyles.titleLarge),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -234,8 +216,10 @@ class EditProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 내 정보를 불러온 뒤에만 활성화합니다(현재 닉네임이 있어야 수정 가능).
+    final ready = context.select<AuthViewModel, bool>((a) => a.member != null);
     return ElevatedButton(
-      onPressed: () {},
+      onPressed: ready ? () => context.push('/my/profile/edit') : null,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.violet,
         foregroundColor: AppColors.white,
