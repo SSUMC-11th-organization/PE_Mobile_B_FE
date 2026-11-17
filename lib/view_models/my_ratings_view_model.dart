@@ -31,6 +31,31 @@ class MyRatingsViewModel extends ChangeNotifier {
   MyRatingsLoadStatus status = MyRatingsLoadStatus.idle;
   String? message;
 
+  /// 저장은 성공했지만 목록 재조회(GET)가 실패했을 때의 안내. 쓰기를 다시 보내지 않습니다.
+  String? refreshWarning;
+
+  // ---- Challenge: 다중 선택 삭제 ----
+  bool isSelecting = false;
+  final Set<int> selectedRatingIds = {};
+  bool isDeletingSelected = false;
+
+  void startSelecting() {
+    isSelecting = true;
+    selectedRatingIds.clear();
+    notifyListeners();
+  }
+
+  void cancelSelecting() {
+    isSelecting = false;
+    selectedRatingIds.clear();
+    notifyListeners();
+  }
+
+  void toggleSelected(int ratingId) {
+    if (!selectedRatingIds.remove(ratingId)) selectedRatingIds.add(ratingId);
+    notifyListeners();
+  }
+
   /// 평점 목록 불러오기
   Future<void> load([int? targetMemberId]) async {
     if (targetMemberId != null) {
@@ -39,6 +64,7 @@ class MyRatingsViewModel extends ChangeNotifier {
     final version = ++_requestVersion;
     status = MyRatingsLoadStatus.loading;
     message = null;
+    refreshWarning = null;
     notifyListeners();
 
     try {
@@ -84,6 +110,77 @@ class MyRatingsViewModel extends ChangeNotifier {
     }
 
     if (!_disposed && version == _requestVersion) {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _refreshAfterWrite() async {
+    await load(); // GET 실패는 status=error로 기록됩니다.
+    if (_disposed) return;
+    if (status == MyRatingsLoadStatus.error) {
+      refreshWarning = '저장은 완료됐지만 목록을 불러오지 못했습니다. 조회만 다시 시도해 주세요.';
+      notifyListeners();
+    }
+  }
+
+  /// 쓰기 실패: 서버 message를 StateError로 감싸 Dialog가 그대로 보여주게 합니다.
+  Future<Never> _failWrite(DioException error) async {
+    final text = writeErrorMessage(error);
+    if (shouldRefreshAfterRatingError(error)) await load();
+    throw StateError(text);
+  }
+
+  Future<void> updateRating({
+    required int ratingId,
+    required int score,
+    String? comment,
+  }) async {
+    try {
+      await _service.updateRating(
+        memberId: _memberId,
+        ratingId: ratingId,
+        score: score,
+        comment: comment,
+      );
+    } on DioException catch (error) {
+      await _failWrite(error);
+    }
+    await _refreshAfterWrite(); // GET 실패를 저장 실패로 다시 던지지 않습니다.
+  }
+
+  Future<void> deleteRating(int ratingId) async {
+    try {
+      await _service.deleteRating(memberId: _memberId, ratingId: ratingId);
+    } on DioException catch (error) {
+      await _failWrite(error);
+    }
+    await _refreshAfterWrite();
+  }
+
+  Future<void> deleteSelectedRatings() async {
+    if (isDeletingSelected || selectedRatingIds.isEmpty) return;
+    isDeletingSelected = true;
+    notifyListeners();
+    var failed = 0;
+    try {
+      // 원본 Set을 순회하며 remove하면 ConcurrentModificationError → 복사본 순회
+      for (final ratingId in selectedRatingIds.toList()) {
+        try {
+          await _service.deleteRating(memberId: _memberId, ratingId: ratingId);
+          selectedRatingIds.remove(ratingId);
+        } on DioException {
+          failed++; // 실패한 항목은 선택 상태를 유지합니다.
+        }
+      }
+    } finally {
+      isDeletingSelected = false;
+      if (!_disposed) notifyListeners();
+    }
+    if (_disposed) return;
+    if (failed == 0) isSelecting = false;
+    await _refreshAfterWrite();
+    if (failed > 0 && !_disposed) {
+      message = '$failed개 항목을 삭제하지 못했습니다. 선택된 항목을 다시 확인해 주세요.';
       notifyListeners();
     }
   }

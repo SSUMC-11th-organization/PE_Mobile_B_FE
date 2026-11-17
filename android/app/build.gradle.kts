@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.movielog"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "30.0.16248370" // flutter.ndkVersion(28.2.x)은 미설치 → 설치된 버전으로 고정
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

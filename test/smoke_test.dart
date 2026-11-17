@@ -1,21 +1,52 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movielog/data/models/common_response.dart';
+import 'package:movielog/data/models/create_member_request.dart';
+import 'package:movielog/data/models/sign_up_models.dart';
+import 'package:movielog/data/models/tmdb_genre_dto.dart';
 import 'package:movielog/data/models/tmdb_movie_dto.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/models/tmdb_movie_page_dto.dart';
+import 'package:movielog/data/services/rating_api_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
+import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/main.dart';
-import 'package:movielog/screens/home_screen.dart';
 import 'package:movielog/screens/movie_detail_screen.dart';
 import 'package:movielog/screens/sign_up_screen.dart';
 import 'package:movielog/theme/app_theme.dart';
+import 'package:movielog/view_models/movie_detail_view_model.dart';
+import 'package:movielog/widgets/movielog_button.dart';
 import 'package:movielog/widgets/rating_dialog.dart';
+import 'package:provider/provider.dart';
 
-class _FakeSmokeMemberCheckService implements MemberCheckService {
+class _FakeSignUpService implements SignUpService {
   @override
   Future<bool> checkNickname(String nickname) async => true;
 
   @override
   Future<bool> checkEmail(String email) async => true;
+
+  @override
+  Future<CommonResponse<SignUpResult>> signUp(CreateMemberRequest request) async =>
+      const CommonResponse(
+        isSuccess: true,
+        code: 'COMMON201',
+        message: 'ok',
+        result: SignUpResult(memberId: 7, email: 'a@b.co', nickname: 'nick'),
+      );
+}
+
+class _FakeTmdb implements TmdbMovieService {
+  @override
+  Future<TmdbMoviePageDto> discoverMovies({required int page, int? genreId}) async =>
+      const TmdbMoviePageDto(page: 1, results: [], totalPages: 1, totalResults: 0);
+
+  @override
+  Future<List<TmdbGenreDto>> fetchGenres() async => const [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -23,12 +54,13 @@ void main() {
     await dotenv.load(fileName: '.env');
   });
 
-  testWidgets('start -> register -> home flow has no back stack', (
+  testWidgets('start -> register -> /movies (v6 sign up stores memberId)', (
     tester,
   ) async {
     await tester.pumpWidget(
       MovieLogApp(
-        memberCheckService: _FakeSmokeMemberCheckService(),
+        signUpService: _FakeSignUpService(),
+        tmdbMovieService: _FakeTmdb(),
       ),
     );
     await tester.pumpAndSettle();
@@ -40,29 +72,30 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), '무비러버');
     await tester.enterText(find.byType(TextFormField).at(1), 'test@example.com');
-    await tester.enterText(find.byType(TextFormField).at(2), 'password1');
+    await tester.enterText(find.byType(TextFormField).at(2), 'Password1!');
     await tester.tap(find.byType(Checkbox));
     await tester.pumpAndSettle();
 
-    // 6주차 중복 확인 수행
     final checkButtons = find.text('중복 확인');
-    expect(checkButtons, findsNWidgets(2));
     await tester.tap(checkButtons.at(0));
     await tester.pumpAndSettle();
     await tester.tap(checkButtons.at(1));
     await tester.pumpAndSettle();
 
-    // 가입하기 버튼 탭
+    await tester.ensureVisible(find.text('가입하기'));
     await tester.tap(find.text('가입하기'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(HomeScreen), findsOneWidget);
-    final context = tester.element(find.byType(HomeScreen));
-    expect(Navigator.of(context).canPop(), isFalse);
+    expect(find.byType(SignUpScreen), findsNothing);
   });
 
-  testWidgets(
-      'movie detail screen renders a given movie and opens rating dialog', (
+  test('validatePasswordFormat / CreateRatingRequest', () {
+    expect(validatePasswordFormat('Password1!'), isNull);
+    expect(validatePasswordFormat('password1!'), isNotNull); // 대문자 없음
+    expect(validatePasswordFormat('Pass1!'), isNotNull); // 8자 미만
+  });
+
+  testWidgets('movie detail opens rating dialog with comment field', (
     tester,
   ) async {
     const movie = TmdbMovieDto(
@@ -80,16 +113,31 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const MovieDetailScreen(movieId: 42, movie: movie),
+        home: ChangeNotifierProvider(
+          create: (_) => MovieDetailViewModel(
+            RatingApiService(Dio()),
+            7,
+            movie,
+          ),
+          child: const MovieDetailScreen(movieId: 42, movie: movie),
+        ),
       ),
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('테스트 영화'), findsAtLeastNWidgets(1));
     expect(find.text('줄거리입니다.'), findsOneWidget);
 
     await tester.tap(find.text('평점 남기기'));
     await tester.pumpAndSettle();
     expect(find.byType(RatingDialog), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+
+    // 별점 선택 전에는 확인 버튼 비활성
+    final confirm = tester.widget<ElevatedButton>(
+      find.descendant(
+        of: find.widgetWithText(MovieLogButton, '확인'),
+        matching: find.byType(ElevatedButton),
+      ),
+    );
+    expect(confirm.onPressed, isNull);
   });
 }

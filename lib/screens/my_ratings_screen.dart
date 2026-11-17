@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/models/rating_dto.dart';
 import '../data/models/rating_with_movie.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../view_models/my_ratings_view_model.dart';
-import '../widgets/common_app_bar.dart';
+import '../widgets/loading_overlay.dart';
+import '../widgets/movielog_button.dart';
+import '../widgets/rating_dialog.dart';
 import '../widgets/tmdb_poster_image.dart';
 
 class MyRatingsScreen extends StatelessWidget {
@@ -14,38 +18,54 @@ class MyRatingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<MyRatingsViewModel>();
+    final selecting = viewModel.isSelecting;
 
-    return Scaffold(
-      appBar: CommonAppBar(
-        title: '내가 등록한 평점',
-        centerTitle: true,
-        actions: [
-          // 스터디/미션 검증용: memberId 전환 팝업 메뉴 (1: 정상 3건, 3: 빈 목록, 999999: 404 오류)
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.tune, color: AppColors.violet),
-            tooltip: '검증용 memberId 전환',
-            onSelected: (id) => viewModel.load(id),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 1,
-                child: Text('memberId 1 (정상 / Success 3건)'),
-              ),
-              const PopupMenuItem(
-                value: 3,
-                child: Text('memberId 3 (빈 목록 / Empty)'),
-              ),
-              const PopupMenuItem(
-                value: 999999,
-                child: Text('memberId 999999 (404 오류 / Error)'),
-              ),
-            ],
+    return PopScope(
+      // 다중 삭제 중에는 화면 이탈을 막습니다.
+      canPop: !viewModel.isDeletingSelected,
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: viewModel.isDeletingSelected ? null : () => context.pop(),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => viewModel.load(),
-          child: _buildBody(context, viewModel),
+          title: Text(
+            selecting ? '${viewModel.selectedRatingIds.length}개 선택' : '내가 등록한 평점',
+            style: AppTextStyles.titleLarge.copyWith(color: AppColors.violet),
+          ),
+          actions: [
+            if (viewModel.status == MyRatingsLoadStatus.success)
+              TextButton(
+                onPressed: viewModel.isDeletingSelected
+                    ? null
+                    : (selecting ? viewModel.cancelSelecting : viewModel.startSelecting),
+                child: Text(selecting ? '취소' : '편집'),
+              ),
+          ],
+        ),
+        bottomNavigationBar: selecting
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: MovieLogButton(
+                    label: '선택한 ${viewModel.selectedRatingIds.length}개 삭제',
+                    width: double.infinity,
+                    onPressed: viewModel.selectedRatingIds.isEmpty
+                        ? null
+                        : () => _onDeleteSelectedPressed(context),
+                  ),
+                ),
+              )
+            : null,
+        body: SafeArea(
+          child: LoadingOverlay(
+            isLoading: viewModel.isDeletingSelected,
+            child: RefreshIndicator(
+              onRefresh: () => viewModel.load(),
+              child: _buildBody(context, viewModel),
+            ),
+          ),
         ),
       ),
     );
@@ -60,21 +80,137 @@ class MyRatingsScreen extends StatelessWidget {
         );
 
       case MyRatingsLoadStatus.error:
+        // 저장 성공 후 GET만 실패한 경우: 쓰기를 다시 보내지 않고 조회만 재시도합니다.
         return _ErrorView(
-          message: viewModel.message ?? '평점을 불러오지 못했습니다.',
+          message: viewModel.refreshWarning ??
+              viewModel.message ??
+              '평점을 불러오지 못했습니다.',
+          retryLabel: viewModel.refreshWarning != null ? '조회 다시 시도' : '다시 시도',
           onRetry: () => viewModel.load(),
         );
 
       case MyRatingsLoadStatus.empty:
-        return _EmptyView(
-          onRefresh: () => viewModel.load(),
-        );
+        return _EmptyView(onRefresh: () => viewModel.load());
 
       case MyRatingsLoadStatus.success:
         return _SuccessView(
           ratings: viewModel.ratings,
           message: viewModel.message,
+          selecting: viewModel.isSelecting,
+          selectedIds: viewModel.selectedRatingIds,
         );
+    }
+  }
+}
+
+Future<void> _onDeleteSelectedPressed(BuildContext context) async {
+  final viewModel = context.read<MyRatingsViewModel>();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('선택한 평점을 삭제할까요?'),
+      content: const Text('삭제한 평점은 복구할 수 없습니다.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('삭제'),
+        ),
+      ],
+    ),
+  );
+  // Dialog는 바로 닫히고, 삭제는 ViewModel이 이어받아 로딩 오버레이로 표시합니다.
+  if (confirmed != true) return;
+  await viewModel.deleteSelectedRatings();
+}
+
+Future<void> _onEditPressed(BuildContext context, RatingDto rating) async {
+  final viewModel = context.read<MyRatingsViewModel>();
+  final messenger = ScaffoldMessenger.of(context);
+  final saved = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false, // 저장 중 바깥 탭으로 닫히는 것도 막습니다.
+    builder: (_) => RatingDialog(
+      initialScore: rating.score,
+      initialComment: rating.comment, // null이면 빈 칸
+      onSubmit: (score, comment) => viewModel.updateRating(
+        ratingId: rating.ratingId,
+        score: score,
+        comment: comment, // null이면 기존 후기를 지우겠다는 의도로 명시 전송
+      ),
+    ),
+  );
+  if (saved != true) return;
+  messenger.showSnackBar(const SnackBar(content: Text('평점을 수정했습니다.')));
+}
+
+Future<void> _onDeletePressed(BuildContext context, RatingDto rating) async {
+  final viewModel = context.read<MyRatingsViewModel>();
+  final messenger = ScaffoldMessenger.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _DeleteRatingDialog(
+      onConfirm: () => viewModel.deleteRating(rating.ratingId),
+    ),
+  );
+  if (confirmed != true) return; // 취소하면 API 요청 없음
+  messenger.showSnackBar(const SnackBar(content: Text('평점을 삭제했습니다.')));
+}
+
+class _DeleteRatingDialog extends StatefulWidget {
+  const _DeleteRatingDialog({required this.onConfirm});
+
+  final Future<void> Function() onConfirm;
+
+  @override
+  State<_DeleteRatingDialog> createState() => _DeleteRatingDialogState();
+}
+
+class _DeleteRatingDialogState extends State<_DeleteRatingDialog> {
+  bool _isDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isDeleting,
+      child: AlertDialog(
+        title: const Text('평점을 삭제할까요?'),
+        content: const Text('삭제한 평점은 복구할 수 없습니다.'),
+        actions: [
+          MovieLogButton(
+            label: '취소',
+            onPressed: _isDeleting ? null : () => Navigator.pop(context, false),
+          ),
+          MovieLogButton(
+            label: '삭제',
+            isLoading: _isDeleting,
+            onPressed: _isDeleting ? null : _onConfirm,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onConfirm() async {
+    setState(() => _isDeleting = true);
+    try {
+      await widget.onConfirm();
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error is StateError
+              ? error.message
+              : '삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+        ),
+      );
     }
   }
 }
@@ -82,11 +218,15 @@ class MyRatingsScreen extends StatelessWidget {
 class _SuccessView extends StatelessWidget {
   const _SuccessView({
     required this.ratings,
+    required this.selecting,
+    required this.selectedIds,
     this.message,
   });
 
   final List<RatingWithMovie> ratings;
   final String? message;
+  final bool selecting;
+  final Set<int> selectedIds;
 
   @override
   Widget build(BuildContext context) {
@@ -121,16 +261,28 @@ class _SuccessView extends StatelessWidget {
             ),
           ),
         ],
-        ...ratings.map((entry) => _RatingCard(entry: entry)),
+        ...ratings.map(
+          (entry) => _RatingCard(
+            entry: entry,
+            selecting: selecting,
+            selected: selectedIds.contains(entry.rating.ratingId),
+          ),
+        ),
       ],
     );
   }
 }
 
 class _RatingCard extends StatelessWidget {
-  const _RatingCard({required this.entry});
+  const _RatingCard({
+    required this.entry,
+    required this.selecting,
+    required this.selected,
+  });
 
   final RatingWithMovie entry;
+  final bool selecting;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -238,6 +390,29 @@ class _RatingCard extends StatelessWidget {
               ],
             ),
           ),
+          // 우측: 선택 모드면 체크박스, 아니면 수정·삭제 버튼
+          if (selecting)
+            Checkbox(
+              value: selected,
+              onChanged: (_) => context
+                  .read<MyRatingsViewModel>()
+                  .toggleSelected(rating.ratingId),
+            )
+          else
+            Column(
+              children: [
+                IconButton(
+                  tooltip: '수정',
+                  icon: const Icon(Icons.edit_outlined, color: AppColors.violet),
+                  onPressed: () => _onEditPressed(context, rating),
+                ),
+                IconButton(
+                  tooltip: '삭제',
+                  icon: const Icon(Icons.delete_outline, color: AppColors.gray),
+                  onPressed: () => _onDeletePressed(context, rating),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -320,10 +495,12 @@ class _ErrorView extends StatelessWidget {
   const _ErrorView({
     required this.message,
     required this.onRetry,
+    this.retryLabel = '다시 시도',
   });
 
   final String message;
   final VoidCallback onRetry;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +552,7 @@ class _ErrorView extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('다시 시도'),
+                label: Text(retryLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.violet,
                   foregroundColor: AppColors.white,

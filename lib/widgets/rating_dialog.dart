@@ -1,49 +1,112 @@
 import 'package:flutter/material.dart';
 
+import '../data/models/rating_request.dart';
 import 'movie_rating_input.dart';
+import 'movielog_button.dart';
 
+/// 등록·수정 공용 Dialog. onSubmit이 예외 없이 끝나면 true, 취소하면 false를 반환합니다.
 class RatingDialog extends StatefulWidget {
-  const RatingDialog({super.key, this.initialRating = 0});
+  const RatingDialog({
+    super.key,
+    this.initialScore = 0,
+    this.initialComment,
+    required this.onSubmit,
+  });
 
-  final double initialRating;
+  final int initialScore;
+  final String? initialComment;
+  final Future<void> Function(int score, String? comment) onSubmit;
 
   @override
   State<RatingDialog> createState() => _RatingDialogState();
 }
 
 class _RatingDialogState extends State<RatingDialog> {
-  late double _rating = widget.initialRating;
+  late int _score = widget.initialScore;
+  // build()가 아닌 State에서 한 번만 만들어야 setState에도 입력이 유지됩니다.
+  late final _commentController =
+      TextEditingController(text: widget.initialComment ?? '');
+  bool _isSubmitting = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '영화는 어떠셨나요?',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            MovieRatingInput(
-              rating: _rating,
-              onChanged: (value) => setState(() => _rating = value),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => setState(() => _rating = 0),
-              child: const Text('평점 초기화'),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, _rating),
-              child: const Text('확인'),
-            ),
-          ],
+    return PopScope(
+      canPop: !_isSubmitting,
+      child: AlertDialog(
+        title: const Text('평점을 남겨주세요'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MovieRatingInput(
+                rating: _score.toDouble(),
+                enabled: !_isSubmitting,
+                onChanged: (value) =>
+                    setState(() => _score = validateServerScore(value)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _commentController,
+                maxLines: 3,
+                maxLength: 500,
+                enabled: !_isSubmitting,
+                decoration: const InputDecoration(
+                  hintText: '코멘트를 남겨보세요 (선택)',
+                ),
+              ),
+              if (_errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(_errorText!, style: const TextStyle(color: Colors.red)),
+              ],
+            ],
+          ),
         ),
+        actions: [
+          MovieLogButton(
+            label: '취소',
+            onPressed:
+                _isSubmitting ? null : () => Navigator.pop(context, false),
+          ),
+          MovieLogButton(
+            label: '확인',
+            isLoading: _isSubmitting,
+            onPressed: _score > 0 && !_isSubmitting ? _onConfirm : null,
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _onConfirm() async {
+    final trimmed = _commentController.text.trim();
+    if (trimmed.length > 500) {
+      setState(() => _errorText = '코멘트는 500자 이하로 입력해 주세요.');
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+    try {
+      await widget.onSubmit(_score, trimmed.isEmpty ? null : trimmed);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      // 실패해도 입력(_score·컨트롤러)은 그대로 두고 로딩만 풉니다.
+      setState(() {
+        _isSubmitting = false;
+        _errorText = error is StateError
+            ? error.message
+            : '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      });
+    }
   }
 }

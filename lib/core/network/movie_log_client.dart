@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../debug/debug_failure.dart';
+
 Dio createMovieLogClient() {
   final dio = Dio(
     BaseOptions(
@@ -22,6 +24,8 @@ Dio createMovieLogClient() {
         responseBody: true,
       ),
     );
+    // 로그 뒤에 두어 주입된 실패도 로그에 남습니다.
+    dio.interceptors.add(DebugFailureInterceptor());
   }
 
   return dio;
