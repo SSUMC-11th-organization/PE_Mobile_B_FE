@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_colors.dart';
+import 'temp_login_dialog.dart';
 
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
@@ -74,7 +75,12 @@ class StartScreen extends StatelessWidget {
                   child: const Text('시작하기', style: TextStyle(fontSize: 16)),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => showTempLoginDialog(context),
+                child: const Text('임시 로그인 (memberId)'),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

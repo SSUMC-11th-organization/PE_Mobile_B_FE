@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../view_models/movie_detail_view_model.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/tmdb_poster_image.dart';
@@ -20,18 +22,29 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  double _myRating = 0;
   bool _isFavorite = false;
 
-  Future<void> _openRatingDialog(TmdbMovieDto movie) async {
-    final rating = await showDialog<double>(
+  Future<void> _openRatingDialog() async {
+    final viewModel = context.read<MovieDetailViewModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => RatingDialog(initialRating: _myRating),
+      barrierDismissible: false, // 저장 중 바깥 탭으로 닫히는 것도 막습니다.
+      builder: (_) => RatingDialog(
+        onSubmit: (score, comment) async {
+          await viewModel.createRating(score: score, comment: comment);
+          if (viewModel.submitStatus != SubmitStatus.success) {
+            throw StateError(viewModel.submitMessage ?? '저장에 실패했습니다.');
+          }
+        },
+      ),
     );
-    if (rating == null || !mounted) return;
-    setState(() => _myRating = rating);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$rating점을 남겼어요.')));
+    if (!mounted || saved != true) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('평점을 등록했습니다. 마이페이지의 "내가 등록한 평점"에서 확인할 수 있습니다.'),
+      ),
+    );
   }
 
   void _toggleFavorite() {
@@ -44,6 +57,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
+    final hasMember = context.read<MovieDetailViewModel>().memberId != null;
 
     if (movie == null) {
       return Scaffold(
@@ -109,22 +123,17 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 Text(movie.overview, style: AppTextStyles.bodyMedium),
               ],
               const SizedBox(height: 24),
-              if (_myRating > 0) ...[
-                Text('내가 남긴 평점', style: AppTextStyles.titleMedium),
-                const SizedBox(height: 8),
-                RatingBarIndicator(
-                  rating: _myRating,
-                  itemCount: 5,
-                  itemSize: 22,
-                  itemBuilder: (context, _) =>
-                      const Icon(Icons.star, color: AppColors.violet),
+              if (!hasMember) ...[
+                const Text(
+                  '평점을 남기려면 먼저 학습용 회원가입을 완료해 주세요.',
+                  style: AppTextStyles.bodySmall,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
               ],
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => _openRatingDialog(movie),
+                  onPressed: hasMember ? _openRatingDialog : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.violet,
                     foregroundColor: AppColors.white,
@@ -133,7 +142,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(_myRating > 0 ? '평점 다시 남기기' : '평점 남기기'),
+                  child: const Text('평점 남기기'),
                 ),
               ),
             ],

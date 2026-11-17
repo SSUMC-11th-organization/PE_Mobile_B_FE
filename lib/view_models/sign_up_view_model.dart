@@ -1,14 +1,58 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/services/member_check_service.dart';
+import '../data/models/create_member_request.dart';
+import '../data/services/sign_up_service.dart';
 
 enum CheckStatus { idle, checking, available, duplicated, error }
+
+enum SubmitStatus { idle, submitting, success, error }
 
 class SignUpViewModel extends ChangeNotifier {
   SignUpViewModel(this._service);
 
-  final MemberCheckService _service;
+  final SignUpService _service;
+
+  // ---- 7주차: 회원가입 제출 ----
+  SubmitStatus submitStatus = SubmitStatus.idle;
+  int? createdMemberId; // 가입 성공 응답에서 읽은 실제 ID
+  String? passwordErrorText; // 400 중 비밀번호 오류만 (필드 단위)
+  String? snackbarMessage; // 그 외 400·409 (화면 단위)
+
+  void onPasswordChanged() {
+    if (passwordErrorText == null) return;
+    passwordErrorText = null;
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> submit(CreateMemberRequest request) async {
+    if (submitStatus == SubmitStatus.submitting) return;
+    submitStatus = SubmitStatus.submitting;
+    createdMemberId = null;
+    passwordErrorText = null;
+    snackbarMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _service.signUp(request);
+      final id = response.result?.memberId;
+      if (id == null) throw StateError('회원가입 결과에 memberId가 없습니다.');
+      createdMemberId = id;
+      submitStatus = SubmitStatus.success;
+    } on DioException catch (error) {
+      submitStatus = SubmitStatus.error;
+      final message = writeSignUpErrorMessage(error);
+      if (error.response?.statusCode == 400 && message.contains('비밀번호')) {
+        passwordErrorText = message;
+      } else {
+        snackbarMessage = message; // 409 최종 중복 포함
+      }
+    } on StateError {
+      submitStatus = SubmitStatus.error;
+      snackbarMessage = '가입 결과를 확인하지 못했습니다. 새 요청 전에 서버 상태를 확인해 주세요.';
+    }
+    if (!_disposed) notifyListeners();
+  }
 
   CheckStatus nicknameCheckStatus = CheckStatus.idle;
   String? nicknameErrorText;
@@ -38,6 +82,7 @@ class SignUpViewModel extends ChangeNotifier {
     final trimmed = value.trim();
     _currentNickname = trimmed;
     _nicknameRequestVersion++; // 이전 요청의 응답을 무효화합니다.
+    snackbarMessage = null; // 이전 서버 오류도 함께 무효화합니다.
     if (_duplicatedNickname != null && trimmed == _duplicatedNickname) {
       nicknameCheckStatus = CheckStatus.duplicated;
       nicknameErrorText = '이미 사용 중인 닉네임입니다.';
@@ -52,6 +97,7 @@ class SignUpViewModel extends ChangeNotifier {
     final trimmed = value.trim();
     _currentEmail = trimmed;
     _emailRequestVersion++; // 이전 요청의 응답을 무효화합니다.
+    snackbarMessage = null; // 이전 서버 오류도 함께 무효화합니다.
     if (_duplicatedEmail != null && trimmed == _duplicatedEmail) {
       emailCheckStatus = CheckStatus.duplicated;
       emailErrorText = '이미 등록된 이메일입니다.';

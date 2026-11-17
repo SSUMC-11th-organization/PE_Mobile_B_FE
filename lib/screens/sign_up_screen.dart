@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../data/services/member_check_service.dart';
-import '../theme/app_colors.dart';
+import '../data/models/create_member_request.dart';
+import '../data/services/sign_up_service.dart';
 import '../theme/app_text_styles.dart';
+import '../view_models/learning_member_session.dart';
 import '../view_models/sign_up_view_model.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/movielog_button.dart';
@@ -21,7 +22,7 @@ class SignUpScreen extends StatelessWidget {
     } catch (_) {
       return ChangeNotifierProvider<SignUpViewModel>(
         create: (context) => SignUpViewModel(
-          context.read<MemberCheckService>(),
+          context.read<SignUpService>(),
         ),
         child: const _SignUpFormView(),
       );
@@ -64,7 +65,8 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    return nickname.length >= 2 &&
+    return viewModel.submitStatus != SubmitStatus.submitting &&
+        nickname.length >= 2 &&
         email.contains('@') &&
         password.length >= 8 &&
         _agreedToTerms &&
@@ -72,7 +74,7 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
         viewModel.emailCheckStatus == CheckStatus.available;
   }
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     final viewModel = context.read<SignUpViewModel>();
 
@@ -92,11 +94,27 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
     }
 
     FocusScope.of(context).unfocus();
-    // 6주차 워크북 안내: 실제 회원가입 POST는 v6부터이므로 유효하면 홈으로 이동
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('회원가입이 완료되었습니다! (v5 모의 완료)')),
-    );
-    context.go('/home');
+    await viewModel.submit(CreateMemberRequest(
+      email: _emailController.text,
+      password: _passwordController.text,
+      nickname: _nicknameController.text,
+    ));
+    if (!mounted) return;
+
+    final memberId = viewModel.createdMemberId;
+    if (viewModel.submitStatus == SubmitStatus.success && memberId != null) {
+      context.read<LearningMemberSession>().setMemberId(memberId);
+      context.go('/movies');
+      return;
+    }
+    // 비밀번호 400은 errorText로 이미 표시됩니다. 나머지(400·409)는 Snackbar.
+    _formKey.currentState?.validate();
+    final message = viewModel.snackbarMessage;
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -105,7 +123,10 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
       builder: (context, viewModel, child) {
         final canSubmit = _canSubmit(viewModel);
 
-        return Scaffold(
+        return PopScope(
+          // 제출 중에는 뒤로가기·스와이프 백을 막습니다.
+          canPop: viewModel.submitStatus != SubmitStatus.submitting,
+          child: Scaffold(
           appBar: const CommonAppBar(title: '회원가입', centerTitle: true),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -141,8 +162,8 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
                               if (nickname.isEmpty) {
                                 return '닉네임을 입력해 주세요.';
                               }
-                              if (nickname.length < 2) {
-                                return '닉네임은 두 글자 이상 입력해 주세요.';
+                              if (nickname.length < 2 || nickname.length > 12) {
+                                return '닉네임은 2~12자로 입력해 주세요.';
                               }
                               return null;
                             },
@@ -203,7 +224,7 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
                               if (email.isEmpty) {
                                 return '이메일을 입력해 주세요.';
                               }
-                              if (!email.contains('@')) {
+                              if (!_emailPattern.hasMatch(email)) {
                                 return '올바른 이메일 형식이 아니에요.';
                               }
                               return null;
@@ -245,7 +266,9 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
                       focusNode: _passwordFocusNode,
                       decoration: InputDecoration(
                         labelText: '비밀번호',
-                        hintText: '8자 이상 입력',
+                        hintText: '8자 이상, 대·소문자·숫자·특수문자',
+                        // 서버 400(비밀번호 형식)은 로컬 validator 통과 후에도 유지됩니다.
+                        errorText: viewModel.passwordErrorText,
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -261,14 +284,11 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
                       ),
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onChanged: (_) => setState(() {}),
-                      validator: (value) {
-                        final password = value?.trim() ?? '';
-                        if (password.length < 8) {
-                          return '비밀번호를 8자 이상 입력해 주세요.';
-                        }
-                        return null;
+                      onChanged: (_) {
+                        viewModel.onPasswordChanged();
+                        setState(() {});
                       },
+                      validator: validatePasswordFormat,
                     ),
                     const SizedBox(height: 20),
 
@@ -297,17 +317,15 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
                     MovieLogButton(
                       label: '가입하기',
                       width: double.infinity,
+                      isLoading:
+                          viewModel.submitStatus == SubmitStatus.submitting,
                       onPressed: canSubmit ? _onSubmit : null,
                     ),
-
-                    const SizedBox(height: 32),
-
-                    // 6. [스터디 인증용] MovieLogButton 너비 3종 비교 섹션
-                    const _MovieLogButtonWidthDemo(),
                   ],
                 ),
               ),
             ),
+          ),
           ),
         );
       },
@@ -315,58 +333,17 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
   }
 }
 
-/// [미션 인증용] MovieLogButton의 너비 옵션(null / 고정값 / double.infinity) 비교 영역
-class _MovieLogButtonWidthDemo extends StatelessWidget {
-  const _MovieLogButtonWidthDemo();
+final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.warmWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.lightGray),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'MovieLogButton 너비 비교 (미션 인증)',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.violet,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text('1. width: null (내용 기반 Intrinsic 크기)',
-              style: TextStyle(fontSize: 12, color: AppColors.gray)),
-          const SizedBox(height: 6),
-          MovieLogButton(
-            label: '너비 null 버튼',
-            onPressed: () {},
-          ),
-          const SizedBox(height: 12),
-          const Text('2. width: 140 (고정 너비)',
-              style: TextStyle(fontSize: 12, color: AppColors.gray)),
-          const SizedBox(height: 6),
-          MovieLogButton(
-            label: '너비 140 버튼',
-            width: 140,
-            onPressed: () {},
-          ),
-          const SizedBox(height: 12),
-          const Text('3. width: double.infinity (전체 너비)',
-              style: TextStyle(fontSize: 12, color: AppColors.gray)),
-          const SizedBox(height: 6),
-          MovieLogButton(
-            label: '전체 너비 버튼',
-            width: double.infinity,
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
+/// 8자 이상, 소문자·대문자·숫자·특수문자(!@#$%^&*) 각 1개 이상. 서버 검증을 대체하지 않습니다.
+String? validatePasswordFormat(String? value) {
+  final password = value ?? '';
+  if (password.length < 8 ||
+      !password.contains(RegExp(r'[a-z]')) ||
+      !password.contains(RegExp(r'[A-Z]')) ||
+      !password.contains(RegExp(r'[0-9]')) ||
+      !password.contains(RegExp(r'[!@#$%^&*]'))) {
+    return '8자 이상, 대·소문자·숫자·특수문자(!@#\$%^&*)를 포함해 주세요.';
   }
+  return null;
 }
