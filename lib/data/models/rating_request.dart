@@ -6,7 +6,7 @@ int validateServerScore(double score) {
   return score.toInt();
 }
 
-// POST /v6/members/{memberId}/ratings 요청 본문
+// POST /v7/ratings 요청 본문 (보호 API — memberId 없음)
 class CreateRatingRequest {
   const CreateRatingRequest({
     required this.movieId,

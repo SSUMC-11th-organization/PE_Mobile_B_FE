@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/models/rating_request.dart';
+import '../data/services/rating_api_service.dart' show RatingActionCancelled;
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'movie_rating_input.dart';
@@ -65,6 +66,8 @@ class _RatingDialogState extends State<RatingDialog> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on RatingActionCancelled {
+      _release(); // 세션 만료 등 — 오류 문구 없이 진행 중 상태만 해제
     } on StateError catch (e) {
       _showError(e.message);
     } catch (_) {
@@ -72,7 +75,15 @@ class _RatingDialogState extends State<RatingDialog> {
     }
   }
 
-  // 실패 시 입력값은 그대로 두고 다시 제출할 수 있게 되돌림
+  void _release() {
+    if (!mounted) return;
+    setState(() {
+      _isSubmitting = false;
+      _errorText = null;
+    });
+  }
+
+  // 실패 시 입력값은 그대로 두고 다시 제출할 수 있게 되돌림 (문구는 입력칸 아래 표시)
   void _showError(String message) {
     if (!mounted) return;
     setState(() {

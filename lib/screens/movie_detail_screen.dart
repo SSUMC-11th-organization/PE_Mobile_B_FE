@@ -3,13 +3,14 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/services/rating_api_service.dart' show RatingActionCancelled;
 import '../theme/app_text_styles.dart';
 import '../view_models/movie_detail_view_model.dart';
 import '../view_models/sign_up_view_model.dart' show SubmitStatus;
 import '../widgets/common_app_bar.dart';
 import '../widgets/rating_dialog.dart';
 
-// 영화 상세 화면 — 영화 정보와 memberId는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음
+// 영화 상세 화면 — 영화 정보와 평점 등록 상태는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({super.key});
 
@@ -44,6 +45,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       builder: (context) => RatingDialog(
         onSubmit: (score, comment) async {
           await vm.createRating(score: score, comment: comment);
+          // 세션 만료/세션 변경 → 문구 없이 진행 중 상태만 해제 (화면은 redirect로 사라짐)
+          if (vm.submitStatus == SubmitStatus.idle) {
+            throw const RatingActionCancelled();
+          }
           if (vm.submitStatus != SubmitStatus.success) {
             throw StateError(
               vm.submitMessage ?? '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
@@ -59,7 +64,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         ..showSnackBar(
           const SnackBar(
             content: Text(
-              '평점을 등록했습니다. 마이페이지의 "내가 등록한 평점"에서 확인할 수 있습니다.',
+              '평점을 등록했습니다. 마이페이지의 "평점 기록"에서 확인할 수 있습니다.',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -72,7 +77,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     final vm = context.watch<MovieDetailViewModel>();
     final movie = vm.movie;
     final year = movie.releaseYear;
-    final canRate = vm.memberId != null;
 
     return Scaffold(
       // 상세 화면은 뒤로가기 허용 → 이전 화면이 있으면 pop,
@@ -121,18 +125,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              // 학습용 회원가입 전(memberId == null)에는 평점을 남길 수 없음
+              // 로그인(signedIn) 상태에서만 이 화면에 올 수 있음 → 토큰으로 등록 (memberId 불필요)
               ElevatedButton(
-                onPressed: canRate ? () => _openRatingDialog(vm) : null,
+                onPressed: () => _openRatingDialog(vm),
                 child: const Text('평점 남기기'),
               ),
-              if (!canRate) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  '학습용 회원가입 후 이용할 수 있습니다.',
-                  style: AppTextStyles.bodySmall,
-                ),
-              ],
             ],
           ),
         ),
