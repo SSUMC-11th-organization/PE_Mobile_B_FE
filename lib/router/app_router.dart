@@ -62,7 +62,7 @@ class AppRouter {
           parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) {
             final auth = context.watch<AuthViewModel>();
-            return StartScreen(
+            return SplashScreen(
               message: auth.message,
               onRetry: auth.status == AuthStatus.retryRequired
                   ? auth.restoreSession

@@ -4,11 +4,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_colors.dart';
 import '../widgets/movielog_button.dart';
 
-/// 스플래시 겸용 시작 화면.
+/// 스플래시 겸용 시작 화면. 
 /// onRetry가 없으면 세션 확인 중(initializing), 있으면 확인 실패(retryRequired)입니다.
 /// 화면 이동은 하지 않습니다. Router가 인증 상태를 보고 결정합니다.
-class StartScreen extends StatelessWidget {
-  const StartScreen({super.key, this.message, this.onRetry});
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key, this.message, this.onRetry});
 
   final String? message;
   final VoidCallback? onRetry;
