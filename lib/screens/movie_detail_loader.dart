@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import '../data/models/tmdb_movie_dto.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
-import '../view_models/learning_member_session.dart';
+import '../view_models/auth_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
+import '../view_models/my_ratings_view_model.dart';
 import 'movie_detail_screen.dart';
 
 /// extra가 없는 직접 접근·Deep Link에서는 TMDB 단건 조회로 영화를 채웁니다.
@@ -50,7 +51,8 @@ class _MovieDetailLoaderState extends State<MovieDetailLoader> {
         return ChangeNotifierProvider<MovieDetailViewModel>(
           create: (context) => MovieDetailViewModel(
             context.read<RatingApiService>(),
-            context.read<LearningMemberSession>().memberId,
+            context.read<AuthViewModel>(),
+            context.read<MyRatingsViewModel>(),
             snapshot.data!,
           ),
           child: MovieDetailScreen(
