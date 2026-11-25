@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/models/favorite_list_item.dart';
 import '../../data/models/tmdb_movie_dto.dart';
 import '../../view_models/favorites_view_model.dart';
 import '../../view_models/load_phase.dart';
+import '../../widgets/movie_card.dart';
 import '../../widgets/movielog_button.dart';
 
 /// 마이페이지의 자식 화면. root Navigator 위에 떠서 하단 NavigationBar가 없고, AppBar 뒤로가기로 복귀.
@@ -56,42 +58,29 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           );
         }
 
+        // 영화 목록 화면과 같은 2열 Grid에 기존 영화 카드(MovieCard)를 재사용
         return RefreshIndicator(
           onRefresh: vm.refresh,
-          child: ListView.builder(
+          child: GridView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 24,
+              childAspectRatio: 0.55,
+            ),
             itemCount: vm.items.length,
             itemBuilder: (context, index) {
               final item = vm.items[index], movie = item.movie;
 
               // 영화 정보를 못 가져온 카드만 placeholder + 재조회. 다른 카드는 그대로 둠
               if (movie == null) {
-                return ListTile(
-                  leading: const Icon(Icons.broken_image_outlined),
-                  title: Text('TMDB #${item.favorite.movieId}'),
-                  subtitle: Text(item.errorMessage ?? '정보가 없습니다.'),
-                  trailing: MovieLogButton(
-                    width: 110,
-                    label: '정보 재조회',
-                    onPressed: vm.refresh,
-                  ),
-                );
+                return _MissingMovieCard(item: item, onRetry: vm.refresh);
               }
 
-              final path = movie.posterPath;
-
-              return ListTile(
-                leading: path == null
-                    ? const Icon(Icons.movie_outlined)
-                    : Image.network(
-                        'https://image.tmdb.org/t/p/w185$path',
-                        width: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            const Icon(Icons.broken_image_outlined),
-                      ),
-                title: Text(movie.title),
-                trailing: const Icon(Icons.chevron_right),
+              return MovieCard(
+                movie: movie,
                 onTap: () async {
                   await widget.onOpenMovie(movie);
 
@@ -107,4 +96,53 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       },
     ),
   );
+}
+
+/// TMDB에서 영화 정보를 가져오지 못한 즐겨찾기. 제목·포스터 대신 movieId와 재조회 버튼을 표시
+class _MissingMovieCard extends StatelessWidget {
+  const _MissingMovieCard({required this.item, required this.onRetry});
+
+  final FavoriteListItem item;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.broken_image_outlined),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'TMDB #${item.favorite.movieId}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(
+          item.errorMessage ?? '정보가 없습니다.',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 8),
+        MovieLogButton(
+          width: double.infinity,
+          label: '정보 재조회',
+          onPressed: onRetry,
+        ),
+      ],
+    );
+  }
 }

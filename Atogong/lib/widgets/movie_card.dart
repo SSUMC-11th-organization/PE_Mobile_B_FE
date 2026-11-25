@@ -5,10 +5,12 @@ import '../data/models/tmdb_movie_dto.dart';
 import 'tmdb_poster_image.dart';
 
 class MovieCard extends StatelessWidget {
-  const MovieCard({super.key, required this.movie, this.width});
+  const MovieCard({super.key, required this.movie, this.width, this.onTap});
 
   final TmdbMovieDto movie;
   final double? width;
+  // 9주차: 내 즐겨찾기처럼 상세에서 돌아온 뒤 할 일이 있는 화면은 탭 동작을 직접 넘김. 없으면 기존처럼 상세로 이동
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +20,7 @@ class MovieCard extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // 상세 화면에는 TMDB id를 경로로 넘기고, 화면에 그릴 DTO는 extra로 함께 전달
-      onTap: () => context.push('/movies/${movie.id}', extra: movie),
+      onTap: onTap ?? () => context.push('/movies/${movie.id}', extra: movie),
       child: SizedBox(
         width: width,
         child: Column(
