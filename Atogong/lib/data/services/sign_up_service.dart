@@ -14,23 +14,23 @@ class SignUpService {
   // 중복 확인 GET은 v7에서도 성공 시 Wrapper 없이 { "available": true } 그대로
   Future<bool> checkNickname(String nickname) async {
     final encoded = Uri.encodeComponent(nickname.trim());
-    final response = await _dio.get('/v7/members/nickname/$encoded');
+    final response = await _dio.get('/v8/members/nickname/$encoded');
     return CheckResult.fromJson(response.data as Map<String, dynamic>)
         .available;
   }
 
   Future<bool> checkEmail(String email) async {
     final encoded = Uri.encodeComponent(email.trim());
-    final response = await _dio.get('/v7/members/email/$encoded');
+    final response = await _dio.get('/v8/members/email/$encoded');
     return CheckResult.fromJson(response.data as Map<String, dynamic>)
         .available;
   }
 
-  /// POST /v7/members. 성공(201)은 공통 응답으로 감싸져 오므로 한 번 파싱한 뒤 result에서 payload를 읽음
+  /// POST /v8/members. 성공(201)은 공통 응답으로 감싸져 오므로 한 번 파싱한 뒤 result에서 payload를 읽음
   Future<CommonResponse<SignUpResult>> signUp(
     CreateMemberRequest request,
   ) async {
-    final response = await _dio.post('/v7/members', data: request.toJson());
+    final response = await _dio.post('/v8/members', data: request.toJson());
 
     return CommonResponse<SignUpResult>.fromJson(
       response.data as Map<String, dynamic>,
