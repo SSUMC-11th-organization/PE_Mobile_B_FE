@@ -3,6 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:movielog/core/network/movielog_client.dart';
+import 'package:movielog/core/session/auth_session_bridge.dart';
+import 'package:movielog/core/session/session_guard.dart';
 import 'package:movielog/core/network/tmdb_client.dart';
 import 'package:movielog/core/storage/token_storage.dart';
 import 'package:movielog/data/services/auth_api_service.dart';
@@ -54,6 +56,23 @@ class MovieLogApp extends StatelessWidget {
             context.read<MemberApiService>(),
             context.read<TokenStorage>(),
           ),
+        ),
+        // 9주차: AuthViewModel의 세션 변화를 SessionGuard에 전달. 인증 상태의 기준은 여전히 AuthViewModel
+        Provider<AuthSessionBridge>(
+          create: (context) {
+            final auth = context.read<AuthViewModel>();
+            return AuthSessionBridge(
+              authSignals: auth,
+              sessionVersion: () => auth.sessionVersion,
+              verifiedEmail: () => auth.status == AuthStatus.signedIn
+                  ? auth.member?.email
+                  : null,
+            );
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
+        Provider<SessionGuard>(
+          create: (context) => context.read<AuthSessionBridge>().guard,
         ),
         // 이번 로그인 세션에서 등록한 평점. 영화 상세(등록)와 마이페이지(수정·삭제)가 같이 읽고, 세션이 바뀌면 비워짐
         ChangeNotifierProvider<SessionRatings>(
