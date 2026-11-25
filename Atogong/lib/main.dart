@@ -8,6 +8,7 @@ import 'package:movielog/core/session/session_guard.dart';
 import 'package:movielog/core/network/tmdb_client.dart';
 import 'package:movielog/core/storage/token_storage.dart';
 import 'package:movielog/data/services/auth_api_service.dart';
+import 'package:movielog/data/services/favorite_api_service.dart';
 import 'package:movielog/data/services/member_api_service.dart';
 import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/router/app_router.dart';
@@ -48,6 +49,10 @@ class MovieLogApp extends StatelessWidget {
         Provider<MemberApiService>(create: (_) => MemberApiService(authClient)),
         Provider<RatingApiService>(
           create: (_) => RatingApiService(publicClient, authClient),
+        ),
+        // 9주차: 즐겨찾기는 전부 보호 API라 8주차의 보호용 Client(authClient)를 그대로 사용
+        Provider<FavoriteApiService>(
+          create: (_) => FavoriteApiService(authClient),
         ),
         // Service가 모두 등록된 뒤 생성자로 주입받는 인증 ViewModel
         ChangeNotifierProvider<AuthViewModel>(
