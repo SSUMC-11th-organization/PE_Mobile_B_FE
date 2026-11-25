@@ -16,6 +16,7 @@ import '../screens/login/login_screen.dart';
 import '../screens/main/main_screen.dart';
 import '../screens/movie_detail/movie_detail_loader.dart';
 import '../screens/movie_list/movie_list_screen.dart';
+import '../screens/movie_search/movie_search_screen.dart';
 import '../screens/my_ratings/my_ratings_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/sign_up/sign_up_screen.dart';
@@ -232,6 +233,23 @@ class AppRouter {
               ],
             ),
           ],
+        ),
+        // 정적인 search를 동적인 :movieId보다 먼저 등록. 순서가 바뀌면 search가 영화 ID로 해석됨
+        GoRoute(
+          path: '/movies/search',
+          parentNavigatorKey: _rootNavigatorKey,
+          // 영화 목록과는 별도의 PagedMoviesViewModel. 검색어를 제출하기 전에는 요청하지 않음(idle)
+          builder: (context, state) =>
+              ChangeNotifierProvider<PagedMoviesViewModel>(
+                create: (context) => PagedMoviesViewModel(
+                  tmdbApi: context.read<TmdbMovieService>(),
+                ),
+                child: MovieSearchScreen(
+                  onOpenMovie: (movie) async {
+                    await context.push('/movies/${movie.id}', extra: movie);
+                  },
+                ),
+              ),
         ),
         GoRoute(
           path: '/movies/:movieId',

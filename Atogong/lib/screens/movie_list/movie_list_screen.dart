@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../view_models/load_phase.dart';
@@ -27,7 +28,13 @@ class MovieListScreen extends StatelessWidget {
           '영화',
           style: TextStyle(color: colors.primary, fontWeight: FontWeight.bold),
         ),
-        actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.search))],
+        actions: [
+          IconButton(
+            tooltip: '영화 검색',
+            onPressed: () => context.push('/movies/search'),
+            icon: const Icon(Icons.search),
+          ),
+        ],
       ),
       body: Consumer<PagedMoviesViewModel>(
         builder: (context, paged, _) {
