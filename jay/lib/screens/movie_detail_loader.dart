@@ -29,7 +29,7 @@ class _MovieDetailLoaderState extends State<MovieDetailLoader> {
     super.initState();
     _movieFuture = widget.initialMovie != null
         ? Future.value(widget.initialMovie!)
-        : context.read<TmdbMovieService>().fetchMovieDetail(widget.movieId);
+        : context.read<TmdbMovieService>().fetchMovieDetails(widget.movieId);
   }
 
   @override

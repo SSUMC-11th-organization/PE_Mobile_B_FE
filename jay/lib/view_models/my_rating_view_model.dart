@@ -15,10 +15,10 @@ enum MyRatingsLoadStatus { idle, loading, success, empty, error }
 
 /// "내가 등록한 평점"
 ///
-/// - memberId를 알 때(이 앱에서 방금 가입한 계정으로 로그인): 공개 GET /v7/members/{memberId}/ratings
-/// - memberId를 모를 때: v7 로그인·내 정보 응답에 memberId가 없고 토큰 기반 목록 GET도 없으므로
+/// - memberId를 알 때(이 앱에서 방금 가입한 계정으로 로그인): 공개 GET /v8/members/{memberId}/ratings
+/// - memberId를 모를 때: v8 로그인·내 정보 응답에 memberId가 없고 토큰 기반 목록 GET도 없으므로
 ///   현재 세션에서 등록한 평점(SessionRatingStore)만 보여줍니다. JWT claim을 추정하지 않습니다.
-/// - 수정·삭제는 memberId 없이 v7 보호 API(Authorization 헤더)로 보냅니다.
+/// - 수정·삭제는 memberId 없이 v8 보호 API(Authorization 헤더)로 보냅니다.
 class MyRatingsViewModel extends ChangeNotifier {
   MyRatingsViewModel(
     this._service,

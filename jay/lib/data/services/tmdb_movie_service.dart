@@ -22,12 +22,27 @@ class TmdbMovieService {
     final response = await _dio.get(
       '/discover/movie',
       queryParameters: {
-        'language': 'ko-KR',
         'page': page,
-        'sort_by': 'popularity.desc',
+        'language': 'ko-KR',
         'include_adult': false,
-        'include_video': false,
-        'with_genres': ?genreId,
+        'sort_by': 'popularity.desc',
+        if (genreId != null) 'with_genres': genreId,
+      },
+    );
+    return TmdbMoviePageDto.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<TmdbMoviePageDto> searchMovies({
+    required int page,
+    required String query,
+  }) async {
+    final response = await _dio.get(
+      '/search/movie',
+      queryParameters: {
+        'query': query,
+        'page': page,
+        'language': 'ko-KR',
+        'include_adult': false,
       },
     );
     return TmdbMoviePageDto.fromJson(response.data as Map<String, dynamic>);
@@ -45,7 +60,7 @@ class TmdbMovieService {
         .toList();
   }
 
-  Future<TmdbMovieDto> fetchMovieDetail(int movieId) async {
+  Future<TmdbMovieDto> fetchMovieDetails(int movieId) async {
     final response = await _dio.get(
       '/movie/$movieId',
       queryParameters: {'language': 'ko-KR'},
@@ -55,7 +70,7 @@ class TmdbMovieService {
 
   Future<TmdbMovieDto?> findMovieById(int movieId) async {
     try {
-      return await fetchMovieDetail(movieId);
+      return await fetchMovieDetails(movieId);
     } on DioException catch (error) {
       if (error.response?.statusCode == 404) return null;
       rethrow;

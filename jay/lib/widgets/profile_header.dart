@@ -4,7 +4,7 @@ import 'package:jay/data/models/member_info.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
-/// GET /v7/members/me 응답(이메일·닉네임·가입일)을 표시합니다.
+/// GET /v8/members/me 응답(이메일·닉네임·가입일)을 표시합니다.
 /// 사진은 기존 디자인 예시 이미지입니다.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({super.key, required this.member});
