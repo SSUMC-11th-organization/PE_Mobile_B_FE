@@ -67,6 +67,14 @@ class ProfileScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/my/ratings'),
               ),
+              // 9주차: 내 정보(member)가 준비된 뒤에만 활성화. 화면 쪽 세션 구분에 member.email을 쓰기 때문
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                enabled: member != null,
+                title: const Text('내 즐겨찾기'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/my/favorites'),
+              ),
             ],
           ),
         ),
