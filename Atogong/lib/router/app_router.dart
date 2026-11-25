@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/session/session_guard.dart';
 import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/favorite_api_service.dart';
 import '../data/services/member_api_service.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/sign_up_service.dart';
@@ -19,6 +21,7 @@ import '../screens/sign_up/sign_up_screen.dart';
 import '../screens/start/start_screen.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/edit_profile_view_model.dart';
+import '../view_models/favorite_detail_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
@@ -180,11 +183,33 @@ class AppRouter {
               );
             }
             final extra = state.extra;
-            return MovieDetailLoader(
-              movieId: id,
-              initialMovie: extra is TmdbMovieDto && extra.id == id
-                  ? extra
-                  : null,
+            final member = context.watch<AuthViewModel>().member;
+            final guard = context.read<SessionGuard>();
+
+            // 내 정보가 준비되고 현재 세션과 일치할 때까지 로딩 표시
+            if (member == null || guard.accountId != member.email) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            // 9주차: 즐겨찾기 버튼 상태를 상세 Route에서 제공.
+            // 기존 MovieDetailLoader(영화 조회 + 평점 ViewModel)는 그대로 child로 둠
+            return ChangeNotifierProvider<FavoriteDetailViewModel>(
+              // 계정이나 세션이 바뀌면 key 값이 달라져 이전 사용자의 ViewModel을 버리고 새로 만듦
+              key: ValueKey('${member.email}:${guard.generation}'),
+              create: (context) => FavoriteDetailViewModel(
+                movieId: id,
+                favoriteApi: context.read<FavoriteApiService>(),
+                sessionGuard: guard,
+                accountId: member.email,
+              ),
+              child: MovieDetailLoader(
+                movieId: id,
+                initialMovie: extra is TmdbMovieDto && extra.id == id
+                    ? extra
+                    : null,
+              ),
             );
           },
         ),

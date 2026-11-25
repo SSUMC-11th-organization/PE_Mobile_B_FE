@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../view_models/favorite_detail_view_model.dart';
 import '../../view_models/movie_detail_view_model.dart';
 import '../../view_models/submit_status.dart';
+import '../../widgets/favorite_button.dart';
 import '../../widgets/tmdb_poster_image.dart';
 import 'widgets/rating_dialog.dart';
 
 /// 영화 정보는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음. (8주차: memberId 대신 토큰으로 등록)
-/// 이 화면은 평점 "등록"만 하고, 조회·수정·삭제는 마이페이지의 내가 등록한 평점 화면에서 진행
+/// 이 화면은 평점 "등록"만 하고, 조회·수정·삭제는 마이페이지의 내가 등록한 평점 화면에서 진행.
+/// 9주차: 3주차의 mock 즐겨찾기 상태·버튼을 제거하고, 서버 상태를 따르는 FavoriteButton을 제목 옆에 배치
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({super.key});
 
@@ -17,16 +20,13 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  bool _isFavorite = false;
-
-  void _toggleFavorite() {
-    setState(() => _isFavorite = !_isFavorite);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isFavorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 삭제했습니다.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 처음 만들어질 때 서버의 즐겨찾기 여부를 한 번만 조회 (build()에서는 조회하지 않음)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
+    });
   }
 
   Future<void> _openRatingDialog() async {
@@ -93,18 +93,32 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  movie.title,
-                  style: textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${movie.releaseDate ?? '개봉일 미정'} · ★ ${movie.voteAverage.toStringAsFixed(1)}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                // 제목·정보 텍스트는 그대로 두고, 오른쪽에 북마크 버튼을 배치
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            movie.title,
+                            style: textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${movie.releaseDate ?? '개봉일 미정'} · ★ ${movie.voteAverage.toStringAsFixed(1)}',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const FavoriteButton(),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 if (movie.overview.isEmpty)
@@ -122,27 +136,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _toggleFavorite,
-                      icon: Icon(
-                        _isFavorite ? Icons.bookmark : Icons.bookmark_border,
-                      ),
-                      label: const Text('즐겨찾기'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      // 이 화면은 로그인 상태에서만 열림 (로그아웃 상태면 Router가 /login으로 보냄)
-                      onPressed: _openRatingDialog,
-                      icon: const Icon(Icons.rate_review_outlined),
-                      label: const Text('평점 남기기'),
-                    ),
-                  ),
-                ],
+              // 왼쪽에 있던 즐겨찾기 버튼이 제목 옆으로 옮겨져서 평점 버튼이 전체 너비를 사용
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  // 이 화면은 로그인 상태에서만 열림 (로그아웃 상태면 Router가 /login으로 보냄)
+                  onPressed: _openRatingDialog,
+                  icon: const Icon(Icons.rate_review_outlined),
+                  label: const Text('평점 남기기'),
+                ),
               ),
             ],
           ),
