@@ -12,7 +12,8 @@ class FavoriteButton extends StatelessWidget {
   // 3주차처럼 Snackbar로 결과를 안내. 문구는 화면 내부 상태가 아니라 서버 요청 결과를 따름
   Future<void> _toggle(BuildContext context, FavoriteDetailViewModel vm) async {
     await vm.toggle();
-    if (!context.mounted) return;
+    // 세션 만료는 로그인 화면이 안내하므로 여기서 Snackbar를 또 띄우지 않음
+    if (!context.mounted || vm.sessionExpired) return;
     final message =
         vm.errorMessage ?? (vm.isFavorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 삭제했습니다.');
     ScaffoldMessenger.of(context).showSnackBar(

@@ -201,6 +201,8 @@ class AppRouter {
                         tmdbApi: context.read<TmdbMovieService>(),
                         sessionGuard: guard,
                         accountId: member.email,
+                        // 정리 중 다시 불려도 AuthViewModel이 한 번만 처리
+                        onSessionExpired: auth.expireSession,
                       ),
                       child: FavoritesScreen(
                         onOpenMovie: (movie) async {
@@ -283,6 +285,7 @@ class AppRouter {
                 favoriteApi: context.read<FavoriteApiService>(),
                 sessionGuard: guard,
                 accountId: member.email,
+                onSessionExpired: context.read<AuthViewModel>().expireSession,
               ),
               child: MovieDetailLoader(
                 movieId: id,

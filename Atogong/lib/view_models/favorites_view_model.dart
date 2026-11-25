@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/network/api_error.dart';
 import '../core/session/session_guard.dart';
 import '../core/utils/map_bounded.dart';
 import '../core/utils/safe_notify.dart';
@@ -17,6 +19,7 @@ class FavoritesViewModel extends ChangeNotifier with SafeNotify {
     required this.sessionGuard,
     required this.accountId,
     this.enrichmentConcurrency = 5,
+    this.onSessionExpired,
   });
 
   final FavoriteApiService favoriteApi;
@@ -24,6 +27,8 @@ class FavoritesViewModel extends ChangeNotifier with SafeNotify {
   final SessionGuard sessionGuard;
   final String accountId;
   final int enrichmentConcurrency;
+  // 보호 요청에서 만료·무효 토큰(AUTH401_2/3/4)을 받았을 때 호출. Route에서 AuthViewModel.expireSession을 연결
+  final Future<void> Function()? onSessionExpired;
 
   LoadPhase phase = LoadPhase.idle;
   List<FavoriteListItem> items = const [];
@@ -69,7 +74,8 @@ class FavoritesViewModel extends ChangeNotifier with SafeNotify {
       }
       items = enriched;
       phase = items.isEmpty ? LoadPhase.empty : LoadPhase.ready;
-    } catch (_) {
+    } catch (error) {
+      // 이전 계정에서 늦게 도착한 401이 현재 계정을 로그아웃시키지 않도록 세션부터 확인
       if (!sessionGuard.isCurrent(sessionGeneration, accountId) ||
           refreshGeneration != _refreshGeneration ||
           isDisposed) {
@@ -77,6 +83,10 @@ class FavoritesViewModel extends ChangeNotifier with SafeNotify {
       }
       phase = LoadPhase.error;
       errorMessage = '내 즐겨찾기 목록을 불러오지 못했습니다.';
+      // 네트워크 실패나 403은 로그아웃하지 않고 재시도만 안내. 만료·무효 토큰일 때만 현재 세션을 정리
+      if (error is DioException && isSessionExpiredCode(apiErrorCode(error))) {
+        await onSessionExpired?.call();
+      }
     } finally {
       if (sessionGuard.isCurrent(sessionGeneration, accountId) &&
           refreshGeneration == _refreshGeneration &&
