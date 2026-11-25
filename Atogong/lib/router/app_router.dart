@@ -27,6 +27,7 @@ import '../view_models/favorites_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
+import '../view_models/paged_movies_view_model.dart';
 import '../view_models/session_ratings.dart';
 import '../view_models/sign_up_view_model.dart';
 import '../widgets/movielog_button.dart';
@@ -108,13 +109,22 @@ class AppRouter {
             ),
             GoRoute(
               path: '/movies',
-              builder: (context, state) =>
+              // 9주차: 장르 상태와 page 상태를 따로 제공. 영화 목록은 첫 page만 불러오고 더 보기로 이어감
+              builder: (context, state) => MultiProvider(
+                providers: [
                   ChangeNotifierProvider<MovieListViewModel>(
                     create: (context) =>
                         MovieListViewModel(context.read<TmdbMovieService>())
-                          ..loadInitial(),
-                    child: const MovieListScreen(),
+                          ..loadGenres(),
                   ),
+                  ChangeNotifierProvider<PagedMoviesViewModel>(
+                    create: (context) => PagedMoviesViewModel(
+                      tmdbApi: context.read<TmdbMovieService>(),
+                    )..loadInitial(),
+                  ),
+                ],
+                child: const MovieListScreen(),
+              ),
             ),
             GoRoute(
               path: '/my',

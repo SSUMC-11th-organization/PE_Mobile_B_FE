@@ -36,6 +36,23 @@ class TmdbMovieService {
     return TmdbMoviePageDto.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// GET /search/movie. 검색어가 비어 있으면 호출하지 않음 (ViewModel에서 먼저 막음)
+  Future<TmdbMoviePageDto> searchMovies({
+    required int page,
+    required String query,
+  }) async {
+    final response = await _dio.get(
+      '/search/movie',
+      queryParameters: {
+        'query': query,
+        'page': page,
+        'language': 'ko-KR',
+        'include_adult': false,
+      },
+    );
+    return TmdbMoviePageDto.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<TmdbGenreDto>> fetchGenres() async {
     final response = await _dio.get(
       '/genre/movie/list',
