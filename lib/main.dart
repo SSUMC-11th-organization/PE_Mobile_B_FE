@@ -9,9 +9,12 @@ import 'core/debug/debug_fab.dart';
 import 'core/network/backend_client.dart';
 import 'core/network/movie_log_client.dart';
 import 'core/network/tmdb_client.dart';
+import 'core/session/auth_session_bridge.dart';
+import 'core/session/session_guard.dart';
 import 'core/storage/token_storage.dart';
 import 'data/services/auth_api_service.dart';
 import 'data/services/backend_service.dart';
+import 'data/services/favorite_api_service.dart';
 import 'data/services/member_api_service.dart';
 import 'data/services/rating_api_service.dart';
 import 'data/services/sign_up_service.dart';
@@ -37,6 +40,7 @@ class MovieLogApp extends StatelessWidget {
     this.tokenStorage,
     this.authApiService,
     this.memberApiService,
+    this.favoriteApiService,
   });
 
   // 테스트에서 가짜 구현을 주입하기 위한 선택 인자입니다.
@@ -46,6 +50,7 @@ class MovieLogApp extends StatelessWidget {
   final TokenStorage? tokenStorage;
   final AuthApiService? authApiService;
   final MemberApiService? memberApiService;
+  final FavoriteApiService? favoriteApiService;
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +83,10 @@ class MovieLogApp extends StatelessWidget {
           create: (_) =>
               ratingApiService ?? RatingApiService(publicClient, authClient),
         ),
+        // 즐겨찾기는 모두 보호 요청입니다.
+        Provider<FavoriteApiService>(
+          create: (_) => favoriteApiService ?? FavoriteApiService(authClient),
+        ),
         // 기존 코드와의 호환성을 위한 BackendService 유지
         Provider<BackendService>(
           create: (_) => BackendService(createBackendClient()),
@@ -88,6 +97,24 @@ class MovieLogApp extends StatelessWidget {
             context.read<MemberApiService>(),
             context.read<TokenStorage>(),
           ),
+        ),
+        // Auth 상태 변화를 SessionGuard에 전달합니다. 첫 알림부터 받도록 lazy를 끕니다.
+        Provider<AuthSessionBridge>(
+          lazy: false,
+          create: (context) {
+            final auth = context.read<AuthViewModel>();
+            return AuthSessionBridge(
+              authSignals: auth,
+              sessionVersion: () => auth.sessionVersion,
+              verifiedEmail: () => auth.status == AuthStatus.signedIn
+                  ? auth.member?.email
+                  : null,
+            );
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
+        Provider<SessionGuard>(
+          create: (context) => context.read<AuthSessionBridge>().guard,
         ),
         // 등록 화면과 목록 화면이 공유하는 이번 세션의 평점 저장소
         ChangeNotifierProvider<MyRatingsViewModel>(

@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:movielog/core/storage/token_storage.dart';
+import 'package:movielog/data/models/favorite_check_dto.dart';
+import 'package:movielog/data/models/favorite_response_dto.dart';
 import 'package:movielog/data/models/login_models.dart';
 import 'package:movielog/data/models/member_info.dart';
 import 'package:movielog/data/models/rating_dto.dart';
@@ -8,6 +10,7 @@ import 'package:movielog/data/models/tmdb_genre_dto.dart';
 import 'package:movielog/data/models/tmdb_movie_dto.dart';
 import 'package:movielog/data/models/tmdb_movie_page_dto.dart';
 import 'package:movielog/data/services/auth_api_service.dart';
+import 'package:movielog/data/services/favorite_api_service.dart';
 import 'package:movielog/data/services/member_api_service.dart';
 import 'package:movielog/data/services/rating_api_service.dart';
 import 'package:movielog/data/services/tmdb_movie_service.dart';
@@ -154,3 +157,39 @@ TmdbMovieDto fakeMovie({int id = 42}) => TmdbMovieDto(
       voteAverage: 8.4,
       popularity: 120.5,
     );
+
+class FakeFavoriteApi implements FavoriteApiService {
+  Object? writeError;
+  bool serverFavorite = false;
+  List<int> favoriteIds = [];
+
+  FavoriteResponseDto _dto(int movieId) => FavoriteResponseDto(
+        favoriteId: movieId,
+        movieId: movieId,
+        createdAt: DateTime(2026, 11, 26),
+      );
+
+  @override
+  Future<FavoriteResponseDto> addFavorite({required int movieId}) async {
+    if (writeError != null) throw writeError!;
+    serverFavorite = true;
+    return _dto(movieId);
+  }
+
+  @override
+  Future<void> deleteFavorite({required int movieId}) async {
+    if (writeError != null) throw writeError!;
+    serverFavorite = false;
+  }
+
+  @override
+  Future<FavoriteCheckDto> checkFavorite({required int movieId}) async =>
+      FavoriteCheckDto(movieId: movieId, isFavorite: serverFavorite);
+
+  @override
+  Future<List<FavoriteResponseDto>> fetchMyFavorites() async =>
+      favoriteIds.map(_dto).toList();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
