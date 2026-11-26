@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../view_models/favorite_detail_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
 import '../widgets/common_app_bar.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/tmdb_poster_image.dart';
 
@@ -22,7 +24,13 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  bool _isFavorite = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
+    });
+  }
 
   Future<void> _openRatingDialog() async {
     final viewModel = context.read<MovieDetailViewModel>();
@@ -47,13 +55,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  void _toggleFavorite() {
-    setState(() => _isFavorite = !_isFavorite);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_isFavorite ? '즐겨찾기에 추가했어요.' : '즐겨찾기에서 삭제했어요.')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
@@ -70,19 +71,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         : '연도 미정';
 
     return Scaffold(
-      appBar: CommonAppBar(
-        title: movie.title,
-        onBack: () => context.pop(),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: AppColors.violet,
-            ),
-            onPressed: _toggleFavorite,
-          ),
-        ],
-      ),
+      appBar: CommonAppBar(title: movie.title, onBack: () => context.pop()),
       backgroundColor: AppColors.warmWhite,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -97,9 +86,22 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               const SizedBox(height: 20),
-              Text(movie.title, style: AppTextStyles.titleLarge),
-              const SizedBox(height: 6),
-              Text(year, style: AppTextStyles.bodySmall),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(movie.title, style: AppTextStyles.titleLarge),
+                        const SizedBox(height: 6),
+                        Text(year, style: AppTextStyles.bodySmall),
+                      ],
+                    ),
+                  ),
+                  const FavoriteButton(),
+                ],
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [

@@ -1,21 +1,21 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_genre_dto.dart';
-import '../data/models/tmdb_movie_dto.dart';
 import '../theme/app_colors.dart';
-import '../view_models/movie_list_view_model.dart';
+import '../view_models/load_phase.dart';
+import '../view_models/paged_movies_view_model.dart';
 import '../widgets/common_app_bar.dart';
-import '../widgets/movie_card.dart';
 import '../widgets/movie_list_states.dart';
+import '../widgets/paged_movie_grid.dart';
 
 class MovieListScreen extends StatelessWidget {
   const MovieListScreen({super.key});
 
   Future<void> _openGenreSheet(
     BuildContext context,
-    MovieListViewModel viewModel,
+    PagedMoviesViewModel viewModel,
   ) async {
     final genreId = await showModalBottomSheet<int?>(
       context: context,
@@ -49,60 +49,8 @@ class MovieListScreen extends StatelessWidget {
 
     if (!context.mounted) return;
     if (genreId != viewModel.selectedGenreId) {
-      viewModel.selectGenre(genreId);
+      viewModel.loadInitial(genreId: genreId);
     }
-  }
-
-  Future<void> _openDebugSheet(
-    BuildContext context,
-    MovieListViewModel viewModel,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      builder: (sheetContext) {
-        void pick(VoidCallback action) {
-          Navigator.pop(sheetContext);
-          action();
-        }
-
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                title: Text('상태 테스트 (디버그 전용)'),
-                subtitle: Text('화면에 상태를 강제로 띄웁니다.'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.hourglass_empty),
-                title: const Text('Loading'),
-                onTap: () => pick(
-                  () => viewModel.simulate(MovieListLoadStatus.loading),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.movie_outlined),
-                title: const Text('Empty'),
-                onTap: () =>
-                    pick(() => viewModel.simulate(MovieListLoadStatus.empty)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.error_outline),
-                title: const Text('Error'),
-                onTap: () =>
-                    pick(() => viewModel.simulate(MovieListLoadStatus.error)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.refresh, color: AppColors.violet),
-                title: const Text('실제 데이터로 복구'),
-                onTap: () => pick(viewModel.retry),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -112,16 +60,14 @@ class MovieListScreen extends StatelessWidget {
         title: '영화 목록',
         centerTitle: true,
         actions: [
-          if (kDebugMode)
-            Consumer<MovieListViewModel>(
-              builder: (context, viewModel, child) => IconButton(
-                tooltip: '상태 테스트',
-                icon: const Icon(Icons.bug_report_outlined),
-                onPressed: () => _openDebugSheet(context, viewModel),
-              ),
-            ),
-          Consumer<MovieListViewModel>(
+          IconButton(
+            tooltip: '영화 검색',
+            icon: const Icon(Icons.search),
+            onPressed: () => context.push('/movies/search'),
+          ),
+          Consumer<PagedMoviesViewModel>(
             builder: (context, viewModel, child) => IconButton(
+              tooltip: '장르 선택',
               icon: const Icon(Icons.filter_list),
               onPressed: () => _openGenreSheet(context, viewModel),
             ),
@@ -134,32 +80,31 @@ class MovieListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 12),
-            Consumer<MovieListViewModel>(
+            Consumer<PagedMoviesViewModel>(
               builder: (context, viewModel, child) => GenreFilterChips(
                 genres: viewModel.genres,
                 selectedGenreId: viewModel.selectedGenreId,
-                enabled: !viewModel.isLoading,
-                onSelected: (genreId) => viewModel.selectGenre(genreId),
+                onSelected: (genreId) {
+                  if (genreId == viewModel.selectedGenreId) return;
+                  viewModel.loadInitial(genreId: genreId);
+                },
               ),
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: Consumer<MovieListViewModel>(
+              child: Consumer<PagedMoviesViewModel>(
                 builder: (context, viewModel, child) {
-                  return switch (viewModel.status) {
-                    MovieListLoadStatus.idle ||
-                    MovieListLoadStatus.loading => const MovieListLoading(),
-                    MovieListLoadStatus.error => MovieListError(
-                        message: viewModel.message ?? '영화를 불러오지 못했어요.',
-                        onRetry: () =>
-                            context.read<MovieListViewModel>().retry(),
+                  return switch (viewModel.phase) {
+                    LoadPhase.idle ||
+                    LoadPhase.loading => const MovieListLoading(),
+                    LoadPhase.error => MovieListError(
+                        message: viewModel.errorMessage ?? '영화를 불러오지 못했어요.',
+                        onRetry: viewModel.retry,
                       ),
-                    MovieListLoadStatus.empty => const MovieListEmpty(
+                    LoadPhase.empty => const MovieListEmpty(
                         message: '해당 장르의 영화가 없어요.',
                       ),
-                    MovieListLoadStatus.success => MovieGrid(
-                        movies: viewModel.movies,
-                      ),
+                    LoadPhase.ready => PagedMovieGrid(viewModel: viewModel),
                   };
                 },
               ),
@@ -176,13 +121,11 @@ class GenreFilterChips extends StatelessWidget {
     super.key,
     required this.genres,
     required this.selectedGenreId,
-    required this.enabled,
     required this.onSelected,
   });
 
   final List<TmdbGenreDto> genres;
   final int? selectedGenreId;
-  final bool enabled;
   final ValueChanged<int?> onSelected;
 
   @override
@@ -205,7 +148,7 @@ class GenreFilterChips extends StatelessWidget {
           return ChoiceChip(
             label: Text(item.name),
             selected: selected,
-            onSelected: enabled ? (_) => onSelected(item.id) : null,
+            onSelected: (_) => onSelected(item.id),
             selectedColor: AppColors.violet,
             labelStyle: TextStyle(
               color: selected ? AppColors.white : AppColors.black,
@@ -218,27 +161,6 @@ class GenreFilterChips extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-class MovieGrid extends StatelessWidget {
-  const MovieGrid({super.key, required this.movies});
-
-  final List<TmdbMovieDto> movies;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: movies.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.65,
-      ),
-      itemBuilder: (context, index) => MovieCard(movie: movies[index]),
     );
   }
 }

@@ -1,7 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/debug/debug_failure.dart';
+import '../core/storage/token_storage.dart';
+import '../view_models/auth_view_model.dart';
 import 'button_width_demo_screen.dart';
+
+/// 저장된 토큰을 잘못된 값으로 덮어쓰고 GET me를 다시 요청해 세션 만료 흐름을 재현합니다.
+/// 서버가 AUTH401_2/3/4를 돌려주면 세션 정리 → /login + 만료 Snackbar가 실행됩니다.
+Future<void> _expireTokenForDebug(BuildContext context) async {
+  final auth = context.read<AuthViewModel>();
+  final storage = context.read<TokenStorage>();
+  final messenger = ScaffoldMessenger.of(context);
+
+  if (auth.status != AuthStatus.signedIn) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('로그인한 상태에서만 사용할 수 있어요.')),
+    );
+    return;
+  }
+
+  final original = await storage.readAccessToken();
+  // 이 디버그 화면이 /login을 가리지 않도록 먼저 닫습니다.
+  if (context.mounted) Navigator.of(context).pop();
+
+  await storage.saveAccessToken('debug-invalid-token');
+  await auth.loadMember(force: true);
+
+  // 만료 처리가 되지 않았다면(서버가 다른 코드를 줌 등) 원래 토큰으로 되돌려
+  // 다음 실행에서 잘못된 토큰 때문에 앱이 막히지 않게 합니다.
+  if (auth.status == AuthStatus.signedIn && original != null) {
+    await storage.saveAccessToken(original);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('만료 처리가 되지 않아 원래 토큰으로 복원했어요.')),
+    );
+  }
+}
 
 /// 저장 실패 / 저장 성공 후 GET 실패를 재현하는 디버그 화면 (kDebugMode 전용)
 class DebugFailureScreen extends StatelessWidget {
@@ -49,6 +83,34 @@ class DebugFailureScreen extends StatelessWidget {
               subtitle: const Text('로딩 표시·연타 방지·뒤로가기 차단 확인용'),
               value: s.slow,
               onChanged: (v) => s.update(() => s.slow = v),
+            ),
+            const Divider(),
+            for (final (title, value, set)
+                in <(String, bool, void Function(bool))>[
+              ('즐겨찾기 목록 GET 실패', s.failFavoritesGet,
+                  (v) => s.failFavoritesGet = v),
+              ('영화 목록·검색 첫 page 실패', s.failTmdbFirstPage,
+                  (v) => s.failTmdbFirstPage = v),
+              ('영화 목록·검색 다음 page 실패', s.failTmdbNextPage,
+                  (v) => s.failTmdbNextPage = v),
+              ('TMDB 영화 정보 한 건만 실패', s.failOneMovieDetail, (v) {
+                s.failOneMovieDetail = v;
+                s.failedDetailPath = null;
+              }),
+            ])
+              SwitchListTile(
+                title: Text(title),
+                value: value,
+                onChanged: (v) => s.update(() => set(v)),
+              ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.lock_clock),
+              title: const Text('토큰 만료시키기 (8주차)'),
+              subtitle: const Text(
+                '저장된 토큰을 잘못된 값으로 바꾸고 GET me 요청 → AUTH401 → 로그인 화면 + 만료 Snackbar',
+              ),
+              onTap: () => _expireTokenForDebug(context),
             ),
             const Divider(),
             ListTile(

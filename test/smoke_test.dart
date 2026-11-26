@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movielog/core/session/session_guard.dart';
 import 'package:movielog/core/storage/token_storage.dart';
 import 'package:movielog/data/models/common_response.dart';
 import 'package:movielog/data/models/create_member_request.dart';
@@ -14,6 +15,7 @@ import 'package:movielog/screens/movie_detail_screen.dart';
 import 'package:movielog/screens/sign_up_screen.dart';
 import 'package:movielog/theme/app_theme.dart';
 import 'package:movielog/view_models/auth_view_model.dart';
+import 'package:movielog/view_models/favorite_detail_view_model.dart';
 import 'package:movielog/view_models/movie_detail_view_model.dart';
 import 'package:movielog/view_models/my_ratings_view_model.dart';
 import 'package:movielog/widgets/main_screen.dart';
@@ -138,8 +140,22 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: ChangeNotifierProvider(
-          create: (_) => MovieDetailViewModel(ratingApi, auth, myRatings, movie),
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider(
+              create: (_) =>
+                  MovieDetailViewModel(ratingApi, auth, myRatings, movie),
+            ),
+            ChangeNotifierProvider(
+              create: (_) => FavoriteDetailViewModel(
+                movieId: 42,
+                favoriteApi: FakeFavoriteApi(),
+                sessionGuard: SessionGuard()..startSession('a@b.co'),
+                accountId: 'a@b.co',
+                onSessionExpired: () async {},
+              ),
+            ),
+          ],
           child: MovieDetailScreen(movieId: 42, movie: movie),
         ),
       ),

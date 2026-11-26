@@ -5,7 +5,7 @@ import '../models/common_response.dart';
 import '../models/create_member_request.dart';
 import '../models/sign_up_models.dart';
 
-/// 6주차 MemberCheckService의 이름을 바꾼 클래스. 중복 확인은 v6 path를 사용합니다.
+/// 6주차 MemberCheckService의 이름을 바꾼 클래스. v8 path를 사용합니다.
 class SignUpService {
   SignUpService(this._dio);
 
@@ -13,20 +13,20 @@ class SignUpService {
 
   Future<bool> checkNickname(String nickname) async {
     final encoded = Uri.encodeComponent(nickname.trim());
-    final response = await _dio.get('/v6/members/nickname/$encoded');
+    final response = await _dio.get('/v8/members/nickname/$encoded');
     return CheckResult.fromJson(response.data as Map<String, dynamic>).available;
   }
 
   Future<bool> checkEmail(String email) async {
     final encoded = Uri.encodeComponent(email.trim());
-    final response = await _dio.get('/v6/members/email/$encoded');
+    final response = await _dio.get('/v8/members/email/$encoded');
     return CheckResult.fromJson(response.data as Map<String, dynamic>).available;
   }
 
   Future<CommonResponse<SignUpResult>> signUp(
     CreateMemberRequest request,
   ) async {
-    final response = await _dio.post('/v6/members', data: request.toJson());
+    final response = await _dio.post('/v8/members', data: request.toJson());
     return CommonResponse<SignUpResult>.fromJson(
       response.data as Map<String, dynamic>,
       (value) => SignUpResult.fromJson(value as Map<String, dynamic>),

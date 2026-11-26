@@ -63,43 +63,77 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.lightViolet,
-                          borderRadius: BorderRadius.circular(8),
+                // ListTile의 배경·잉크가 흰 DecoratedBox에 가려지지 않도록 Material로 감쌉니다.
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.lightViolet,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.star_rounded,
+                            color: AppColors.violet,
+                            size: 22,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.star_rounded,
-                          color: AppColors.violet,
-                          size: 22,
+                        title: const Text(
+                          '내가 등록한 평점',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.black,
+                          ),
                         ),
-                      ),
-                      title: const Text(
-                        '내가 등록한 평점',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.black,
+                        subtitle: const Text(
+                          '이번 로그인에서 남긴 별점과 감상평 확인하기',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.gray,
+                          ),
                         ),
-                      ),
-                      subtitle: const Text(
-                        '이번 로그인에서 남긴 별점과 감상평 확인하기',
-                        style: TextStyle(
-                          fontSize: 12,
+                        trailing: const Icon(
+                          Icons.chevron_right,
                           color: AppColors.gray,
                         ),
+                        onTap: () => context.push('/my/ratings'),
                       ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: AppColors.gray,
+                      const Divider(height: 1, color: AppColors.lightGray),
+                      ListTile(
+                        // 내 정보가 준비된 뒤에만 활성화합니다.
+                        enabled: nickname != null,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.lightViolet,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.bookmark_rounded,
+                            color: AppColors.violet,
+                            size: 22,
+                          ),
+                        ),
+                        title: const Text(
+                          '내 즐겨찾기',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.black,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.gray,
+                        ),
+                        onTap: () => context.push('/my/favorites'),
                       ),
-                      onTap: () => context.push('/my/ratings'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 

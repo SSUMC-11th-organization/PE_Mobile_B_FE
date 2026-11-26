@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/tmdb_config.dart';
+import '../debug/debug_failure.dart';
 import 'tmdb_logging_interceptor.dart';
 
 Dio createTmdbClient() {
@@ -19,6 +20,7 @@ Dio createTmdbClient() {
 
   if (kDebugMode) {
     dio.interceptors.add(TmdbLoggingInterceptor());
+    dio.interceptors.add(DebugFailureInterceptor());
   }
 
   return dio;
