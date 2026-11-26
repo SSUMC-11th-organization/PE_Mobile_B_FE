@@ -10,6 +10,7 @@ import '../data/services/member_api_service.dart';
 import '../data/services/sign_up_service.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/edit_profile_screen.dart';
+import '../screens/favorites_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/movie_detail_loader.dart';
@@ -22,6 +23,7 @@ import '../screens/start_screen.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/edit_profile_view_model.dart';
 import '../view_models/favorite_detail_view_model.dart';
+import '../view_models/favorites_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/paged_movies_view_model.dart';
 import '../view_models/sign_up_view_model.dart';
@@ -168,6 +170,25 @@ class AppRouter {
                   parentNavigatorKey: rootNavigatorKey,
                   // MyRatingsViewModel은 앱 전역(MultiProvider)에 있습니다.
                   builder: (context, state) => const MyRatingsScreen(),
+                ),
+                GoRoute(
+                  path: 'favorites', // 최종 경로: /my/favorites
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) =>
+                      _withMember('내 즐겨찾기', (context, member, guard) {
+                    return ChangeNotifierProvider(
+                      key: ValueKey('${member.email}:${guard.generation}'),
+                      create: (context) => FavoritesViewModel(
+                        favoriteApi: context.read<FavoriteApiService>(),
+                        tmdbApi: context.read<TmdbMovieService>(),
+                        sessionGuard: guard,
+                        accountId: member.email,
+                        onSessionExpired:
+                            context.read<AuthViewModel>().expireSession,
+                      ),
+                      child: const FavoritesScreen(),
+                    );
+                  }),
                 ),
                 GoRoute(
                   path: 'profile/edit', // 최종 경로: /my/profile/edit
