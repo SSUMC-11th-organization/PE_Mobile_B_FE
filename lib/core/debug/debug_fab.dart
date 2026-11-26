@@ -13,7 +13,7 @@ class DebugFab extends StatefulWidget {
 
 class _DebugFabState extends State<DebugFab> {
   static const _size = 44.0;
-  Offset? _offset; // null이면 첫 빌드에서 기본 위치(오른쪽, AppBar 아래)로 계산
+  Offset? _offset; // null이면 첫 빌드에서 기본 위치(왼쪽 중간)로 계산
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class _DebugFabState extends State<DebugFab> {
     final minY = media.padding.top;
     final maxY = size.height - media.padding.bottom - _size;
     final offset = _offset ??
-        Offset(size.width - _size - 8, media.padding.top + kToolbarHeight + 8);
+        Offset(8, size.height * 0.5); // 검색창·AppBar 버튼을 가리지 않는 위치
 
     return Positioned(
       left: offset.dx.clamp(0.0, size.width - _size),
