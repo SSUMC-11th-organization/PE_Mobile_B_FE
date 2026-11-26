@@ -6,7 +6,7 @@ int validateServerScore(double value) {
   return value.toInt();
 }
 
-/// POST /v7/ratings 요청 body. memberId는 넣지 않음 (서버가 토큰으로 판단).
+/// POST /v8/ratings 요청 body. memberId는 넣지 않음 (서버가 토큰으로 판단).
 /// movieId는 영화 배열 index가 아니라 TmdbMovieDto.id
 class CreateRatingRequest {
   const CreateRatingRequest({

@@ -7,7 +7,7 @@ import '../../../theme/app_text_styles.dart';
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({super.key, this.imagePath, this.nickname, this.email});
   final String? imagePath;
-  final String? nickname; // 8주차: GET /v7/members/me로 받은 값. 아직 못 받았으면 null
+  final String? nickname; // 8주차: GET /v8/members/me로 받은 값. 아직 못 받았으면 null
   final String? email;
 
   @override

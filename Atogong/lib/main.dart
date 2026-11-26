@@ -3,9 +3,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:movielog/core/network/movielog_client.dart';
+import 'package:movielog/core/session/auth_session_bridge.dart';
+import 'package:movielog/core/session/session_guard.dart';
 import 'package:movielog/core/network/tmdb_client.dart';
 import 'package:movielog/core/storage/token_storage.dart';
 import 'package:movielog/data/services/auth_api_service.dart';
+import 'package:movielog/data/services/favorite_api_service.dart';
 import 'package:movielog/data/services/member_api_service.dart';
 import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/router/app_router.dart';
@@ -47,6 +50,10 @@ class MovieLogApp extends StatelessWidget {
         Provider<RatingApiService>(
           create: (_) => RatingApiService(publicClient, authClient),
         ),
+        // 9주차: 즐겨찾기는 전부 보호 API라 8주차의 보호용 Client(authClient)를 그대로 사용
+        Provider<FavoriteApiService>(
+          create: (_) => FavoriteApiService(authClient),
+        ),
         // Service가 모두 등록된 뒤 생성자로 주입받는 인증 ViewModel
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
@@ -54,6 +61,23 @@ class MovieLogApp extends StatelessWidget {
             context.read<MemberApiService>(),
             context.read<TokenStorage>(),
           ),
+        ),
+        // 9주차: AuthViewModel의 세션 변화를 SessionGuard에 전달. 인증 상태의 기준은 여전히 AuthViewModel
+        Provider<AuthSessionBridge>(
+          create: (context) {
+            final auth = context.read<AuthViewModel>();
+            return AuthSessionBridge(
+              authSignals: auth,
+              sessionVersion: () => auth.sessionVersion,
+              verifiedEmail: () => auth.status == AuthStatus.signedIn
+                  ? auth.member?.email
+                  : null,
+            );
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
+        Provider<SessionGuard>(
+          create: (context) => context.read<AuthSessionBridge>().guard,
         ),
         // 이번 로그인 세션에서 등록한 평점. 영화 상세(등록)와 마이페이지(수정·삭제)가 같이 읽고, 세션이 바뀌면 비워짐
         ChangeNotifierProvider<SessionRatings>(

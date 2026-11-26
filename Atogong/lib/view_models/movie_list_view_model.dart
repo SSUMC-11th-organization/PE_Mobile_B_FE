@@ -1,101 +1,34 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/utils/safe_notify.dart';
 import '../data/models/tmdb_genre_dto.dart';
-import '../data/models/tmdb_movie_dto.dart';
 import '../data/services/tmdb_movie_service.dart';
 
-enum MovieListLoadStatus { idle, loading, success, empty, error }
-
-class MovieListViewModel extends ChangeNotifier {
+/// 영화 목록 화면의 장르 상태(장르 목록, 선택한 장르)만 관리.
+/// 9주차: 5주차의 "Discover 최대 30개 수집"은 PagedMoviesViewModel의 더 보기로 대체되어 영화 목록은 여기서 다루지 않음
+class MovieListViewModel extends ChangeNotifier with SafeNotify {
   MovieListViewModel(this._service);
   final TmdbMovieService _service;
 
-  List<TmdbMovieDto> movies = const [];
   List<TmdbGenreDto> genres = const [];
   int? selectedGenreId; // null이면 "전체" (with_genres 안 보냄)
-  MovieListLoadStatus status = MovieListLoadStatus.idle;
-  String? message;
 
-  bool get isLoading => status == MovieListLoadStatus.loading;
-
-  // 장르를 빠르게 바꿀 때 먼저 보낸 요청의 늦은 응답이 화면을 덮어쓰지 않도록 버전으로 구분
-  int _requestVersion = 0;
-  bool _disposed = false;
-
-  Future<List<TmdbMovieDto>> fetchUpToThirtyMovies({int? genreId}) async {
-    final byId = <int, TmdbMovieDto>{};
-    var pageNumber = 1;
-    var hasNextPage = true;
-
-    while (byId.length < 30 && hasNextPage) {
-      final page = await _service.discoverMovies(
-        page: pageNumber,
-        genreId: genreId,
-      );
-
-      for (final movie in page.results) {
-        byId[movie.id] = movie; // TMDB id를 key로 써서 페이지 간 중복 제거
-        if (byId.length == 30) break;
-      }
-
-      hasNextPage = pageNumber < page.totalPages && page.results.isNotEmpty;
-      pageNumber++;
-    }
-
-    return byId.values.take(30).toList();
-  }
-
-  Future<void> loadInitial() async {
-    final version = ++_requestVersion;
-    status = MovieListLoadStatus.loading;
-    notifyListeners();
-
+  /// 장르 Chip에 쓸 목록. 실패하면 "전체" Chip만 보이고, 영화 목록의 다시 시도에서 함께 재요청
+  Future<void> loadGenres() async {
+    if (genres.isNotEmpty) return;
     try {
-      genres = await _service.fetchGenres();
-      final discovered = await fetchUpToThirtyMovies(genreId: selectedGenreId);
-
-      if (_disposed || version != _requestVersion) return;
-      movies = discovered;
-      status = movies.isEmpty
-          ? MovieListLoadStatus.empty
-          : MovieListLoadStatus.success;
-    } on DioException {
-      if (_disposed || version != _requestVersion) return;
-      status = MovieListLoadStatus.error;
-      message = '영화를 불러오지 못했어요. 다시 시도해 주세요.';
+      final result = await _service.fetchGenres();
+      if (isDisposed) return;
+      genres = result;
+      notifyIfAlive();
+    } catch (_) {
+      // 장르 목록이 없어도 전체 영화 목록은 볼 수 있으므로 화면을 막지 않음
     }
-
-    if (!_disposed && version == _requestVersion) notifyListeners();
   }
 
-  Future<void> selectGenre(int? genreId) async {
-    if (isLoading) return; // 요청 중에는 장르 변경 무시
+  void selectGenre(int? genreId) {
+    if (selectedGenreId == genreId) return;
     selectedGenreId = genreId;
-    final version = ++_requestVersion;
-    status = MovieListLoadStatus.loading;
-    notifyListeners();
-
-    try {
-      final result = await fetchUpToThirtyMovies(genreId: genreId);
-      if (_disposed || version != _requestVersion) return;
-      movies = result;
-      status = result.isEmpty
-          ? MovieListLoadStatus.empty
-          : MovieListLoadStatus.success;
-    } on DioException {
-      if (_disposed || version != _requestVersion) return;
-      status = MovieListLoadStatus.error;
-      message = '해당 장르 영화를 불러오지 못했어요.';
-    }
-
-    if (!_disposed && version == _requestVersion) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    _requestVersion++;
-    super.dispose();
+    notifyIfAlive();
   }
 }

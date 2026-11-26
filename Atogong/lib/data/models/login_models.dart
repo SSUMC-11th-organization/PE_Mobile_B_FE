@@ -1,4 +1,4 @@
-/// POST /v7/auth/login 요청 body
+/// POST /v8/auth/login 요청 body
 class LoginRequest {
   const LoginRequest({required this.email, required this.password});
   final String email;

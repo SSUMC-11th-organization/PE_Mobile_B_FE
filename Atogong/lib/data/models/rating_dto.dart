@@ -1,4 +1,4 @@
-/// 평점 한 건. v7 등록·수정 응답의 result이자 GET /v7/members/{memberId}/ratings 의 항목
+/// 평점 한 건. v7 등록·수정 응답의 result이자 GET /v8/members/{memberId}/ratings 의 항목
 class RatingDto {
   const RatingDto({
     required this.ratingId,
