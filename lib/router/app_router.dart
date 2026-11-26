@@ -11,6 +11,7 @@ import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
+import '../screens/movie_search_screen.dart';
 import '../screens/my_ratings_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/sign_up_screen.dart';
@@ -18,7 +19,7 @@ import '../screens/start_screen.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/edit_profile_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
-import '../view_models/movie_list_view_model.dart';
+import '../view_models/paged_movies_view_model.dart';
 import '../view_models/sign_up_view_model.dart';
 import '../widgets/main_screen.dart';
 import '../widgets/movielog_button.dart';
@@ -85,6 +86,16 @@ class AppRouter {
             child: const SignUpScreen(),
           ),
         ),
+        // 정적인 search를 동적인 :movieId보다 먼저 등록해야 합니다.
+        GoRoute(
+          path: '/movies/search',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) => ChangeNotifierProvider(
+            create: (context) =>
+                PagedMoviesViewModel(context.read<TmdbMovieService>()),
+            child: const MovieSearchScreen(),
+          ),
+        ),
         GoRoute(
           path: '/movies/:movieId',
           parentNavigatorKey: rootNavigatorKey,
@@ -124,7 +135,8 @@ class AppRouter {
               path: '/movies',
               builder: (context, state) => ChangeNotifierProvider(
                 create: (context) =>
-                    MovieListViewModel(context.read<TmdbMovieService>())
+PagedMoviesViewModel(context.read<TmdbMovieService>())
+                      ..loadGenres()
                       ..loadInitial(),
                 child: const MovieListScreen(),
               ),
