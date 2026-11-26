@@ -80,12 +80,9 @@ class MyRatingsScreen extends StatelessWidget {
         );
 
       case MyRatingsLoadStatus.error:
-        // 저장 성공 후 GET만 실패한 경우: 쓰기를 다시 보내지 않고 조회만 재시도합니다.
+        // 8주차: 목록은 메모리 저장소라 error가 되지 않지만 switch 완결성을 위해 남깁니다.
         return _ErrorView(
-          message: viewModel.refreshWarning ??
-              viewModel.message ??
-              '평점을 불러오지 못했습니다.',
-          retryLabel: viewModel.refreshWarning != null ? '조회 다시 시도' : '다시 시도',
+          message: viewModel.message ?? '평점을 불러오지 못했습니다.',
           onRetry: () => viewModel.load(),
         );
 
@@ -495,12 +492,10 @@ class _ErrorView extends StatelessWidget {
   const _ErrorView({
     required this.message,
     required this.onRetry,
-    this.retryLabel = '다시 시도',
   });
 
   final String message;
   final VoidCallback onRetry;
-  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +547,7 @@ class _ErrorView extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: Text(retryLabel),
+                label: const Text('다시 시도'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.violet,
                   foregroundColor: AppColors.white,

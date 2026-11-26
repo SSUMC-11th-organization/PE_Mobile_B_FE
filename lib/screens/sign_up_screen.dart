@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../data/models/create_member_request.dart';
 import '../data/services/sign_up_service.dart';
 import '../theme/app_text_styles.dart';
-import '../view_models/learning_member_session.dart';
+import '../view_models/auth_view_model.dart';
 import '../view_models/sign_up_view_model.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/movielog_button.dart';
@@ -101,11 +101,20 @@ class _SignUpFormViewState extends State<_SignUpFormView> {
     ));
     if (!mounted) return;
 
-    final memberId = viewModel.createdMemberId;
-    if (viewModel.submitStatus == SubmitStatus.success && memberId != null) {
-      context.read<LearningMemberSession>().setMemberId(memberId);
-      context.go('/movies');
-      return;
+    if (viewModel.submitStatus == SubmitStatus.success) {
+      // 가입 직후 입력한 이메일·비밀번호로 자동 로그인합니다. memberId는 쓰지 않습니다.
+      final auth = context.read<AuthViewModel>();
+      final messenger = ScaffoldMessenger.of(context);
+      final router = GoRouter.of(context);
+      await auth.login(_emailController.text, _passwordController.text);
+      if (!mounted) return;
+      if (auth.status != AuthStatus.signedIn) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('가입은 완료됐어요. 로그인해 주세요.')),
+        );
+        router.go('/login');
+      }
+      return; // signedIn이면 Router가 /home으로 이동시킵니다.
     }
     // 비밀번호 400은 errorText로 이미 표시됩니다. 나머지(400·409)는 Snackbar.
     _formKey.currentState?.validate();
