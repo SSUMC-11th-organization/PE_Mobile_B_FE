@@ -2,28 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/session/session_guard.dart';
 import '../data/models/tmdb_movie_dto.dart';
+import '../data/services/favorite_api_service.dart';
 import '../data/services/member_api_service.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
 import '../screens/button_width_demo_screen.dart';
+import '../screens/favorites_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/movie_detail_loader.dart';
 import '../screens/movie_list_screen.dart';
+import '../screens/movie_search_screen.dart';
 import '../screens/my_page_screen.dart';
 import '../screens/my_ratings_screen.dart';
 import '../screens/profile_edit_screen.dart';
 import '../screens/sign_up_screen.dart';
 import '../screens/start_screen.dart';
+import '../theme/app_text_styles.dart';
 import '../view_models/auth_view_model.dart';
+import '../view_models/favorite_detail_view_model.dart';
+import '../view_models/favorites_view_model.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/learning_member_session.dart';
-import '../view_models/movie_list_view_model.dart';
+import '../view_models/paged_movies_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 import '../view_models/profile_edit_view_model.dart';
 import '../view_models/session_ratings_store.dart';
+import '../widgets/common_app_bar.dart';
+import '../widgets/movielog_button.dart';
 
 // 앱 전체의 화면 경로(라우트)를 한곳에서 관리하는 클래스
 class AppRouter {
@@ -80,11 +89,12 @@ class AppRouter {
           ),
           GoRoute(
             path: '/movies',
-            // 목록 탭 진입 시 ViewModel 생성 + 장르/영화 첫 로드 (한 번만)
-            builder: (context, state) => ChangeNotifierProvider(
-              create: (context) =>
-                  MovieListViewModel(context.read<TmdbMovieService>())
-                    ..loadInitial(),
+            // 목록 탭 진입 시 ViewModel 생성 — 첫 page 요청은 화면이 저장된 장르를 읽은 뒤 한 번 시작
+            builder: (context, state) =>
+                ChangeNotifierProvider<PagedMoviesViewModel>(
+              create: (context) => PagedMoviesViewModel(
+                tmdbApi: context.read<TmdbMovieService>(),
+              ),
               child: const MovieListScreen(),
             ),
           ),
@@ -122,9 +132,45 @@ class AppRouter {
                   child: const MyRatingsScreen(),
                 ),
               ),
+              // 내 즐겨찾기 — root Navigator에 띄움 → 하단 NavigationBar 없이 표시
+              // 내 정보(email)가 준비되고 SessionGuard의 현재 세션과 일치할 때만 ViewModel 생성
+              // ValueKey(email:generation) → 계정/세션이 바뀌면 이전 목록을 버리고 새로 만듦
+              GoRoute(
+                path: 'favorites',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final member = context.watch<AuthViewModel>().member;
+                  final guard = context.read<SessionGuard>();
+                  if (member == null || guard.accountId != member.email) {
+                    return const _SessionWaitScreen(title: '내 즐겨찾기');
+                  }
+                  return ChangeNotifierProvider<FavoritesViewModel>(
+                    key: ValueKey('${member.email}:${guard.generation}'),
+                    create: (context) => FavoritesViewModel(
+                      favoriteApi: context.read<FavoriteApiService>(),
+                      tmdbApi: context.read<TmdbMovieService>(),
+                      sessionGuard: guard,
+                      accountId: member.email,
+                    ),
+                    child: const FavoritesScreen(),
+                  );
+                },
+              ),
             ],
           ),
         ],
+      ),
+      // 영화 검색 — ShellRoute 밖(하단 NavigationBar 없음), 영화 목록과 별도의 PagedMoviesViewModel
+      // 정적 경로 'search'를 동적 경로 ':movieId'보다 먼저 등록 → 'search'가 영화 ID로 해석되지 않음
+      GoRoute(
+        path: '/movies/search',
+        builder: (context, state) =>
+            ChangeNotifierProvider<PagedMoviesViewModel>(
+          create: (context) => PagedMoviesViewModel(
+            tmdbApi: context.read<TmdbMovieService>(),
+          ),
+          child: const MovieSearchScreen(),
+        ),
       ),
       // 상세 화면은 ShellRoute 밖 → 하단 NavigationBar 없이 전체 화면으로 표시
       GoRoute(
@@ -132,13 +178,33 @@ class AppRouter {
         // pathParameters는 String이라 int로 파싱. 숫자가 아니면 null → 상세 화면에서 안내 표시
         // extra = 카드에서 넘긴 TmdbMovieDto. URL 직접 진입 등으로 없으면 null
         // extra의 id가 경로 id와 같을 때만 initialMovie로 넘김 → 아니면 Loader가 TMDB에서 다시 조회
+        // 즐겨찾기: 내 정보(email)가 준비되고 SessionGuard의 현재 세션과 일치할 때만
+        // FavoriteDetailViewModel을 ValueKey(email:generation)와 함께 제공 → 계정/세션이 바뀌면 새로 생성
         builder: (context, state) {
           final movieId = int.tryParse(state.pathParameters['movieId'] ?? '');
           final extra = state.extra;
-          return MovieDetailLoader(
+          final loader = MovieDetailLoader(
             movieId: movieId,
             initialMovie:
                 extra is TmdbMovieDto && extra.id == movieId ? extra : null,
+          );
+          // 숫자가 아닌 경로 → Loader가 "찾을 수 없음"만 표시 (즐겨찾기 없음)
+          if (movieId == null) return loader;
+
+          final member = context.watch<AuthViewModel>().member;
+          final guard = context.read<SessionGuard>();
+          if (member == null || guard.accountId != member.email) {
+            return const _SessionWaitScreen(title: '영화 상세');
+          }
+          return ChangeNotifierProvider<FavoriteDetailViewModel>(
+            key: ValueKey('${member.email}:${guard.generation}'),
+            create: (context) => FavoriteDetailViewModel(
+              movieId: movieId,
+              favoriteApi: context.read<FavoriteApiService>(),
+              sessionGuard: guard,
+              accountId: member.email,
+            ),
+            child: loader,
           );
         },
       ),
@@ -167,5 +233,58 @@ class AppRouter {
     if (path.startsWith('/movies')) return 1;
     if (path.startsWith('/my')) return 2;
     return 0;
+  }
+}
+
+// 상세·내 즐겨찾기 진입 시 내 정보(email)가 아직 없을 때의 대기 화면
+// URL로 바로 들어오면 MainScreen을 거치지 않아 member가 비어 있을 수 있음 → 한 번 조회
+// (이미 있거나 조회 중이면 loadMember는 아무것도 하지 않음)
+class _SessionWaitScreen extends StatefulWidget {
+  const _SessionWaitScreen({required this.title});
+
+  final String title;
+
+  @override
+  State<_SessionWaitScreen> createState() => _SessionWaitScreenState();
+}
+
+class _SessionWaitScreenState extends State<_SessionWaitScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AuthViewModel>().loadMember();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthViewModel>();
+    final failed = auth.memberLoadStatus == MemberLoadStatus.error;
+    return Scaffold(
+      appBar: CommonAppBar(
+        title: widget.title,
+        onBack: () => context.canPop() ? context.pop() : context.go('/home'),
+      ),
+      body: Center(
+        child: failed
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      auth.memberErrorMessage ?? '내 정보를 불러오지 못했습니다.',
+                      style: AppTextStyles.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    MovieLogButton(label: '다시 시도', onPressed: auth.loadMember),
+                  ],
+                ),
+              )
+            : const CircularProgressIndicator(),
+      ),
+    );
   }
 }

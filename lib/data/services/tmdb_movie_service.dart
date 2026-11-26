@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../core/network/tmdb_client.dart';
+import '../../core/utils/map_bounded.dart';
 import '../models/json_parsers.dart';
 import '../models/tmdb_genre_dto.dart';
 import '../models/tmdb_movie_dto.dart';
@@ -44,6 +45,37 @@ class TmdbMovieService {
     return TmdbMoviePageDto.fromJson(json);
   }
 
+  // TMDB에서 요청할 수 있는 page 범위의 끝 (total_pages가 더 커도 501 이상은 요청하지 않음)
+  static const maxPage = 500;
+
+  // 영화 목록 한 page (장르별 Discover) — 더 보기(페이지네이션)용
+  // 기존 discoverMovies를 그대로 사용하고 page 범위만 확인 (홈의 fetchPopular와 무관)
+  Future<TmdbMoviePageDto> fetchMoviePage({
+    required int page,
+    int? genreId,
+  }) async {
+    if (page < 1 || page > maxPage) {
+      throw RangeError.range(page, 1, maxPage, 'page');
+    }
+    return discoverMovies(page: page, genreId: genreId);
+  }
+
+  // 영화 검색 한 page (GET /search/movie) — 검색어가 비어 있으면 호출하지 않음 (ViewModel에서 먼저 막음)
+  Future<TmdbMoviePageDto> searchMovies({
+    required String query,
+    required int page,
+  }) async {
+    if (page < 1 || page > maxPage) {
+      throw RangeError.range(page, 1, maxPage, 'page');
+    }
+    final json = await _getJson('/search/movie', {
+      'query': query,
+      'page': page,
+      'include_adult': false,
+    });
+    return TmdbMoviePageDto.fromJson(json);
+  }
+
   // 영화 장르 목록 (GET /genre/movie/list) — 응답은 { genres: [...] }
   Future<List<TmdbGenreDto>> fetchGenres() async {
     final json = await _getJson('/genre/movie/list');
@@ -57,6 +89,26 @@ class TmdbMovieService {
       queryParameters: {'language': 'ko-KR'},
     );
     return TmdbMovieDto.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // 여러 영화 상세를 한 번에 — 즐겨찾기 목록의 movieId로 제목·포스터를 보충할 때 사용
+  // 기존 fetchMovieDetail을 재사용하고, mapBounded로 동시에 최대 concurrency개만 요청
+  // 영화별 실패는 예외 대신 "Map에 key 없음"으로 돌려줌 → 한 건이 실패해도 나머지는 그대로
+  Future<Map<int, TmdbMovieDto>> fetchMovieDetails(
+    List<int> movieIds, {
+    int concurrency = 5,
+  }) async {
+    final ids = movieIds.toSet().toList(growable: false); // 같은 영화는 한 번만 조회
+    final results = await mapBounded(ids, concurrency, (movieId) async {
+      try {
+        return (movieId, await fetchMovieDetail(movieId));
+      } catch (_) {
+        return (movieId, null);
+      }
+    });
+    return {
+      for (final (movieId, movie) in results) movieId: ?movie, // 실패(null)는 key 없음
+    };
   }
 
   // id로 영화 찾기 — TMDB에 없는 영화(404)면 null, 그 외 실패는 다시 던짐

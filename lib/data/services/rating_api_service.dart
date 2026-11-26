@@ -8,7 +8,7 @@ import 'api_response.dart';
 
 // MovieLog v7 평점 API
 // - 쓰기(등록/수정/삭제): 보호용 Dio — AuthInterceptor가 MovieLog JWT 첨부. memberId는 어디에도 보내지 않음
-// - 조회(GET /v7/members/{memberId}/ratings): 공개용 Dio — 토큰을 붙이지 않음
+// - 조회(GET /v8/members/{memberId}/ratings): 공개용 Dio — 토큰을 붙이지 않음
 class RatingApiService {
   // Dio 대신 래퍼 타입으로 받아 공개/보호 Dio가 뒤바뀌지 않게 함
   RatingApiService(
@@ -22,7 +22,7 @@ class RatingApiService {
 
   // 공개 조회 — 응답이 배열 그대로이거나 { isSuccess, result: [...] } wrapper인 경우 모두 처리
   Future<List<RatingDto>> fetchMemberRatings(int memberId) async {
-    final r = await _publicDio.get('/v7/members/$memberId/ratings');
+    final r = await _publicDio.get('/v8/members/$memberId/ratings');
     Object? list = r.data;
     final data = r.data;
     if (data is Map<String, dynamic>) {
@@ -41,13 +41,13 @@ class RatingApiService {
     }
   }
 
-  // POST /v7/ratings {movieId, score, comment} — result: Rating
+  // POST /v8/ratings {movieId, score, comment} — result: Rating
   Future<RatingDto> createRating(CreateRatingRequest request) async {
-    final r = await _authDio.post('/v7/ratings', data: request.toJson());
+    final r = await _authDio.post('/v8/ratings', data: request.toJson());
     return parseCommonResult(r.data, RatingDto.fromJson);
   }
 
-  // PATCH /v7/ratings/{ratingId} {score, comment} — 부분 수정이 아니라 전체 교체
+  // PATCH /v8/ratings/{ratingId} {score, comment} — 부분 수정이 아니라 전체 교체
   // comment가 null(후기 지움)이어도 키를 생략하지 않고 항상 score와 함께 보냄 — result: Rating
   Future<RatingDto> updateRating({
     required int ratingId,
@@ -55,15 +55,15 @@ class RatingApiService {
     required String? comment,
   }) async {
     final r = await _authDio.patch(
-      '/v7/ratings/$ratingId',
+      '/v8/ratings/$ratingId',
       data: <String, dynamic>{'score': score, 'comment': comment},
     );
     return parseCommonResult(r.data, RatingDto.fromJson);
   }
 
-  // DELETE /v7/ratings/{ratingId} — 성공은 200 + isSuccess true (result는 null)
+  // DELETE /v8/ratings/{ratingId} — 성공은 200 + isSuccess true (result는 null)
   Future<void> deleteRating(int ratingId) async {
-    final r = await _authDio.delete('/v7/ratings/$ratingId');
+    final r = await _authDio.delete('/v8/ratings/$ratingId');
     final data = r.data;
     if (r.statusCode != 200 ||
         data is! Map<String, dynamic> ||

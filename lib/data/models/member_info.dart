@@ -1,4 +1,4 @@
-// GET /v7/members/me 성공 응답의 result — { email, nickname, createdAt }
+// GET /v8/members/me 성공 응답의 result — { email, nickname, createdAt }
 // memberId는 계약에 없음 → 읽지 않음
 class MemberInfo {
   const MemberInfo({

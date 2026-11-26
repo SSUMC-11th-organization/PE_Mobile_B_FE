@@ -7,9 +7,11 @@ import 'tmdb_poster_image.dart';
 
 // 영화 카드 — 홈 가로 목록과 영화 목록 그리드에서 공통 사용 (TMDB 영화)
 class MovieCard extends StatelessWidget {
-  const MovieCard({super.key, required this.movie});
+  const MovieCard({super.key, required this.movie, this.onTap});
 
   final TmdbMovieDto movie;
+  // 탭 동작을 바꿀 때만 지정 (예: 내 즐겨찾기 — 상세에서 돌아오면 목록 갱신). null이면 기존처럼 상세로 push
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +20,7 @@ class MovieCard extends StatelessWidget {
     return GestureDetector(
       // push = 현재 화면 위에 상세 화면을 쌓음 → 상세에서 뒤로가기로 돌아올 수 있음
       // 경로에는 TMDB id(배열 index 아님), extra로 영화 데이터를 함께 넘겨 상세에서 다시 조회하지 않음
-      onTap: () => context.push('/movies/${movie.id}', extra: movie),
+      onTap: onTap ?? () => context.push('/movies/${movie.id}', extra: movie),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

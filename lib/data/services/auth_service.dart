@@ -12,10 +12,10 @@ class AuthService {
 
   final Dio _publicDio;
 
-  // POST /v7/auth/login — CommonResponse<LoginResult>
+  // POST /v8/auth/login — CommonResponse<LoginResult>
   // 계약과 다른 응답이면 InvalidApiResponseException
   Future<LoginResult> login(LoginRequest request) async {
-    final r = await _publicDio.post('/v7/auth/login', data: request.toJson());
+    final r = await _publicDio.post('/v8/auth/login', data: request.toJson());
     return parseCommonResult(r.data, LoginResult.fromJson);
   }
 }

@@ -8,7 +8,7 @@ import 'auth_view_model.dart';
 
 enum ProfileSaveStatus { idle, saving, success, error }
 
-// 프로필 수정(/my/profile/edit) — 닉네임만 PATCH /v7/members/me로 저장
+// 프로필 수정(/my/profile/edit) — 닉네임만 PATCH /v8/members/me로 저장
 // 오류는 classifyApiError로 분류 — 세션 만료(401 AUTH401_2/3/4)는 인터셉터가 전역 처리하므로 여기선 문구 없이 정리만
 class ProfileEditViewModel extends ChangeNotifier {
   ProfileEditViewModel(this._memberApi, this._auth);

@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../data/services/rating_api_service.dart' show RatingActionCancelled;
 import '../theme/app_text_styles.dart';
+import '../view_models/favorite_detail_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
 import '../view_models/sign_up_view_model.dart' show SubmitStatus;
 import '../widgets/common_app_bar.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/rating_dialog.dart';
 
 // 영화 상세 화면 — 영화 정보와 평점 등록 상태는 MovieDetailLoader가 만든 MovieDetailViewModel에서 읽음
@@ -21,20 +23,13 @@ class MovieDetailScreen extends StatefulWidget {
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
   static const double _averageRating = 4.5; // 평균 평점 — API 연결 전 임시 값
 
-  bool _isFavorite = false; // Mock 즐겨찾기 상태 — 화면을 나가면 초기화됨
-
-  void _toggleFavorite() {
-    setState(() {
-      _isFavorite = !_isFavorite;
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 처음 만들어질 때 서버의 즐겨찾기 여부를 한 번 조회 (build에서는 조회하지 않음)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
     });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar() // 연속으로 눌러도 안내가 줄줄이 쌓이지 않게 이전 것을 닫음
-      ..showSnackBar(
-        SnackBar(
-          content: Text(_isFavorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 제거했습니다.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
   }
 
   Future<void> _openRatingDialog(MovieDetailViewModel vm) async {
@@ -84,15 +79,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       appBar: CommonAppBar(
         title: movie.title,
         onBack: () => context.canPop() ? context.pop() : context.go('/home'),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-            ),
-            tooltip: _isFavorite ? '즐겨찾기 해제' : '즐겨찾기',
-            onPressed: _toggleFavorite,
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -100,11 +86,25 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(movie.title, style: AppTextStyles.titleLarge),
-              if (year != null) ...[
-                const SizedBox(height: 4),
-                Text('$year', style: AppTextStyles.bodySmall),
-              ],
+              // 제목·정보 텍스트 오른쪽에 즐겨찾기(북마크) 버튼
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(movie.title, style: AppTextStyles.titleLarge),
+                        if (year != null) ...[
+                          const SizedBox(height: 4),
+                          Text('$year', style: AppTextStyles.bodySmall),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const FavoriteButton(),
+                ],
+              ),
               if (movie.overview.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(movie.overview, style: AppTextStyles.bodyMedium),

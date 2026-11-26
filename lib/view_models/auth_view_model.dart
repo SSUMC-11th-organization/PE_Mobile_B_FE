@@ -43,7 +43,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
   // 세션이 바뀔 때(복원 시작, 로그인 시작, 로그아웃, 세션 만료)마다 1씩 증가
   // 비동기 응답이 돌아왔을 때 자기 버전이 아니면 상태를 건드리지 않고 버림
   int _sessionVersion = 0;
-  // restoreSession 성공 시 /v7/members/me 결과. 로그인 직후에는 null → loadMember()로 채움
+  // restoreSession 성공 시 /v8/members/me 결과. 로그인 직후에는 null → loadMember()로 채움
   MemberInfo? _member;
   MemberLoadStatus _memberLoadStatus = MemberLoadStatus.idle;
   String? _memberErrorMessage; // 내 정보 조회 실패 (마이페이지에 표시)
@@ -67,7 +67,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
   String? get sessionExpiredNotice => _sessionExpiredNotice;
   bool get isAuthenticating => _status == AuthStatus.authenticating;
 
-  // 앱 시작(및 재시도 화면의 재시도) — 토큰이 있고 /v7/members/me가
+  // 앱 시작(및 재시도 화면의 재시도) — 토큰이 있고 /v8/members/me가
   // 2xx + isSuccess true + result가 MemberInfo로 파싱돼야만 signedIn (파싱 결과는 member로 보관)
   Future<void> restoreSession() async {
     if (_status == AuthStatus.authenticating) return;
@@ -156,7 +156,7 @@ class AuthViewModel extends ChangeNotifier implements SessionExpiryHandler {
       return;
     }
 
-    // 로그인 직후에는 /v7/members/me를 호출하지 않음 — MainScreen이 loadMember()로 채움
+    // 로그인 직후에는 /v8/members/me를 호출하지 않음 — MainScreen이 loadMember()로 채움
     _clearMember();
     _onSignedIn?.call(email);
     _status = AuthStatus.signedIn;
