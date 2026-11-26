@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/movie_format.dart';
+import '../view_models/favorite_detail_view_model.dart';
 import '../widgets/common_app_bar.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/tmdb_poster_image.dart';
 
@@ -19,20 +21,12 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  bool isFavorite = false;
-
-  void _toggleFavorite() {
-    setState(() {
-      isFavorite = !isFavorite;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
     });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(isFavorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 삭제했습니다.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
   }
 
   /// 등록(myRating == null)과 수정(myRating != null)을 같은 Dialog로 처리합니다.
@@ -127,12 +121,25 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(movie.title, style: AppTextStyles.titleLarge),
-                  // release_date가 없으면 연도를 표시하지 않는다
-                  if (releaseYear(movie.releaseDate) case final year?) ...[
-                    const SizedBox(height: 4),
-                    Text(year, style: AppTextStyles.bodySmall),
-                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(movie.title, style: AppTextStyles.titleLarge),
+                            if (releaseYear(movie.releaseDate)
+                                case final year?) ...[
+                              const SizedBox(height: 4),
+                              Text(year, style: AppTextStyles.bodySmall),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const FavoriteButton(),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -171,8 +178,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     _MyRatingCard(
                       score: rating.score,
                       comment: rating.comment,
-                      busy:
-                          viewModel.submitStatus == SubmitStatus.submitting,
+                      busy: viewModel.submitStatus == SubmitStatus.submitting,
                       onEdit: _openRatingDialog,
                       onDelete: _confirmDelete,
                     ),
@@ -189,26 +195,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _toggleFavorite,
-                  icon: Icon(
-                    isFavorite ? Icons.bookmark : Icons.bookmark_border,
-                  ),
-                  label: const Text('즐겨찾기'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
                 child: FilledButton.icon(
                   // v7: memberId 없이 로그인 토큰만으로 등록합니다.
-                  onPressed: viewModel.canWrite &&
+                  onPressed:
+                      viewModel.canWrite &&
                           viewModel.submitStatus != SubmitStatus.submitting
                       ? _openRatingDialog
                       : null,
                   icon: const Icon(Icons.rate_review),
-                  label: Text(
-                    viewModel.myRating == null ? '평점 남기기' : '평점 수정',
-                  ),
+                  label: Text(viewModel.myRating == null ? '평점 남기기' : '평점 수정'),
                 ),
               ),
             ],

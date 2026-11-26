@@ -3,7 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jay/core/network/movie_log_client.dart';
 import 'package:jay/core/network/tmdb_client.dart';
+import 'package:jay/core/session/auth_session_bridge.dart';
+import 'package:jay/core/session/session_guard.dart';
 import 'package:jay/data/services/auth_api_service.dart';
+import 'package:jay/data/services/favorite_api_service.dart';
 import 'package:jay/data/services/member_api_service.dart';
 import 'package:jay/data/services/rating_api_service.dart';
 import 'package:jay/data/services/sign_up_service.dart';
@@ -53,6 +56,10 @@ class _MovieLogAppState extends State<MovieLogApp> {
         Provider<RatingApiService>(
           create: (_) => RatingApiService(_publicClient, _authClient),
         ),
+        // authClient는 8주차에서 만든 보호용 Dio입니다. 새로 만들지 않고 기존 인스턴스를 사용합니다.
+        Provider<FavoriteApiService>(
+          create: (_) => FavoriteApiService(_authClient),
+        ),
         ChangeNotifierProvider<LearningMemberSession>(
           create: (_) => LearningMemberSession(),
         ),
@@ -63,6 +70,25 @@ class _MovieLogAppState extends State<MovieLogApp> {
             context.read<TokenStorage>(),
             installFlag: InstallFlag(context.read<TokenStorage>()),
           ),
+        ),
+        // AuthViewModel을 읽으므로 반드시 AuthViewModel보다 아래에 둡니다.
+        // lazy: false — 로그인 상태 변화를 처음부터 SessionGuard에 반영하도록 바로 만듭니다.
+        Provider<AuthSessionBridge>(
+          lazy: false,
+          create: (context) {
+            final auth = context.read<AuthViewModel>();
+            return AuthSessionBridge(
+              authSignals: auth,
+              sessionVersion: () => auth.sessionVersion,
+              verifiedEmail: () => auth.status == AuthStatus.signedIn
+                  ? auth.member?.email
+                  : null,
+            );
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
+        Provider<SessionGuard>(
+          create: (context) => context.read<AuthSessionBridge>().guard,
         ),
         // 세션이 바뀌면(로그인·로그아웃·만료) 이전 세션에서 등록한 평점을 비웁니다.
         ChangeNotifierProxyProvider<AuthViewModel, SessionRatingStore>(
